@@ -1,0 +1,263 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- Semantic design tokens (Fluent / Windows 11) ---- */
+:root {
+  color-scheme: light;
+  --bg: #f3f3f3;
+  --bg-soft: rgb(15 23 42 / 0.05);
+  --card: #ffffff;
+  --card-solid: #ffffff;
+  --card-hover: #fafafa;
+  --stroke: rgb(15 23 42 / 0.08);
+  --stroke-strong: rgb(15 23 42 / 0.16);
+  --t1: #1b1b1b;
+  --t2: #4b5563;
+  --t3: #8b93a1;
+  --accent: #005fb8;
+  --accent-2: #0067c0;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(0 95 184 / 0.1);
+  --accent-text: #005fb8;
+  --danger: #d13438;
+  --danger-soft: rgb(209 52 56 / 0.09);
+  --success: #0f7b0f;
+  --success-soft: rgb(15 123 15 / 0.1);
+  --shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.14);
+  --console-bg: #0f1420;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #1c1c24;
+  --bg-soft: rgb(255 255 255 / 0.07);
+  --card: #272732;
+  --card-solid: #272732;
+  --card-hover: #2f2f3c;
+  --stroke: rgb(255 255 255 / 0.1);
+  --stroke-strong: rgb(255 255 255 / 0.18);
+  --t1: #f6f6f8;
+  --t2: #cdd2dd;
+  --t3: #9098a8;
+  --accent: #4cc2ff;
+  --accent-2: #60cdff;
+  --accent-fg: #0b1521;
+  --accent-soft: rgb(76 194 255 / 0.13);
+  --accent-text: #7ad1ff;
+  --danger: #ff99a4;
+  --danger-soft: rgb(255 153 164 / 0.12);
+  --success: #6ccb5f;
+  --success-soft: rgb(108 203 95 / 0.13);
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55);
+  --console-bg: #0a0d14;
+}
+
+/* Native Mica/Acrylic backdrop active: let the window effect show through.
+   Cards stay fairly opaque so text remains readable over any wallpaper. */
+.mica {
+  --card: rgb(255 255 255 / 0.78);
+  --card-hover: rgb(255 255 255 / 0.92);
+  --bg-soft: rgb(15 23 42 / 0.06);
+}
+.mica.dark {
+  --card: rgb(39 39 50 / 0.78);
+  --card-hover: rgb(47 47 60 / 0.9);
+  --bg-soft: rgb(255 255 255 / 0.07);
+}
+.mica body {
+  background: transparent;
+}
+
+/* OLED: true black, higher-contrast strokes; disables Mica transparency. */
+.oled {
+  --bg: #000000;
+  --bg-soft: rgb(255 255 255 / 0.09);
+  --card: #0c0c11;
+  --card-solid: #0c0c11;
+  --card-hover: #15151c;
+  --stroke: rgb(255 255 255 / 0.13);
+  --stroke-strong: rgb(255 255 255 / 0.22);
+  --console-bg: #000000;
+}
+.oled body {
+  background: var(--bg);
+}
+
+@theme inline {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Inter Variable", system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-card: var(--card);
+  --color-card-solid: var(--card-solid);
+  --color-card-hover: var(--card-hover);
+  --color-stroke: var(--stroke);
+  --color-stroke-strong: var(--stroke-strong);
+  --color-t1: var(--t1);
+  --color-t2: var(--t2);
+  --color-t3: var(--t3);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-t1 antialiased font-sans select-none;
+  overscroll-behavior: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+/* ---- Scrollbar ---- */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--stroke-strong);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--t3);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* ---- Reusable surfaces & controls ---- */
+@utility card {
+  @apply bg-card rounded-xl border border-stroke;
+  box-shadow: var(--shadow);
+}
+
+/* Interactive cards get a clearer hover affordance. */
+.card.cursor-pointer:hover,
+.card.group:hover {
+  border-color: var(--stroke-strong);
+}
+
+@utility popover {
+  background: var(--card-solid);
+}
+
+@utility btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: var(--shadow);
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+@utility btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-card px-4 py-2.5 text-sm font-medium text-t2 border border-stroke-strong transition-all hover:bg-card-hover hover:text-t1 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+}
+
+@utility btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-t3 transition-all hover:bg-accent-soft hover:text-t1 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+}
+
+@utility btn-danger {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-danger bg-danger-soft transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+}
+
+@utility input-base {
+  @apply w-full rounded-lg border border-stroke-strong bg-card px-3.5 py-2.5 text-sm text-t1 placeholder-t3 outline-none transition-all focus:border-accent;
+}
+.input-base:focus {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@utility select-base {
+  @apply w-full appearance-none rounded-lg border border-stroke-strong bg-card px-3.5 py-2.5 pr-9 text-sm text-t1 outline-none transition-all focus:border-accent cursor-pointer;
+}
+.select-base:focus {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.select-base option {
+  background: var(--card-solid);
+  color: var(--t1);
+}
+
+@utility tab-active {
+  @apply bg-card text-accent-text border border-stroke;
+  box-shadow: var(--shadow);
+}
+
+/* ---- Markdown body (Modrinth project descriptions) ---- */
+.md-body {
+  @apply text-sm leading-relaxed text-t2 select-text;
+}
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4 {
+  @apply mt-5 mb-2 font-semibold tracking-tight text-t1;
+}
+.md-body h1 { @apply text-xl; }
+.md-body h2 { @apply text-lg; }
+.md-body h3 { @apply text-base; }
+.md-body p { @apply my-2; }
+.md-body a { @apply text-accent-text underline underline-offset-2; }
+.md-body ul { @apply my-2 list-disc pl-5; }
+.md-body ol { @apply my-2 list-decimal pl-5; }
+.md-body code {
+  @apply rounded bg-bg-soft px-1.5 py-0.5 text-[12px] font-mono;
+}
+.md-body pre {
+  @apply my-3 overflow-x-auto rounded-xl bg-bg-soft p-3;
+}
+.md-body pre code { @apply bg-transparent p-0; }
+.md-body img { @apply my-3 max-w-full rounded-xl; }
+.md-body blockquote { @apply my-2 border-l-2 border-stroke-strong pl-3 text-t3; }
+.md-body table { @apply my-3 w-full text-left text-xs; }
+.md-body th, .md-body td { @apply border border-stroke px-2 py-1.5; }
+.md-body hr { @apply my-4 border-stroke; }
+
+/* ---- Animations ---- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-up {
+  animation: fade-up 0.25s ease both;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.animate-modal-in {
+  animation: modal-in 0.2s ease both;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
