@@ -53,8 +53,10 @@ $gh = Get-Command gh -ErrorAction SilentlyContinue
 if ($gh -and (Test-Path $tokenFile)) {
     $env:GH_TOKEN = [System.IO.File]::ReadAllText($tokenFile).Trim()
 
-    # Release notes: section for this version from RELEASE_NOTES.md, if present.
-    $notesArgs = @("--generate-notes")
+    # Release notes: section for this version from RELEASE_NOTES.md (if any),
+    # always followed by the SignPath attribution required by the program.
+    $signpathNote = "Free code signing for the Windows builds is provided by SignPath Foundation (https://signpath.org/)."
+    $body = ""
     $notesFile = "RELEASE_NOTES.md"
     if (Test-Path $notesFile) {
         # ReadAllText honours the UTF-8 BOM/encoding; Get-Content -Raw would
@@ -62,12 +64,12 @@ if ($gh -and (Test-Path $tokenFile)) {
         $all = [System.IO.File]::ReadAllText((Resolve-Path $notesFile))
         $pattern = "(?ms)^##\s*v?$([regex]::Escape($version))\b.*?(?=^##\s|\z)"
         $m = [regex]::Match($all, $pattern)
-        if ($m.Success) {
-            $tmp = Join-Path $env:TEMP "nimbus_notes_$version.md"
-            [System.IO.File]::WriteAllText($tmp, $m.Value.Trim(), (New-Object System.Text.UTF8Encoding($false)))
-            $notesArgs = @("--notes-file", $tmp)
-        }
+        if ($m.Success) { $body = $m.Value.Trim() }
     }
+    $body = if ($body) { "$body`n`n---`n$signpathNote" } else { $signpathNote }
+    $tmp = Join-Path $env:TEMP "nimbus_notes_$version.md"
+    [System.IO.File]::WriteAllText($tmp, $body, (New-Object System.Text.UTF8Encoding($false)))
+    $notesArgs = @("--notes-file", $tmp)
 
     gh release create "v$version" $setup.FullName $sig.FullName $latestPath `
         --repo $Repo --title "Nimbus $version" @notesArgs

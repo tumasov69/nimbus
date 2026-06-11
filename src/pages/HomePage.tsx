@@ -121,27 +121,35 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   const progress = quickStatus?.progress;
 
   return (
-    <div className="animate-fade-up flex flex-col gap-5">
+    <div className="animate-fade-up flex flex-col gap-4">
       {/* Hero / quick play */}
-      <div className="card relative overflow-hidden p-7">
-        <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-accent-soft" />
+      <div
+        className="relative overflow-hidden rounded-xl border border-stroke p-6"
+        style={{
+          background:
+            "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 135%)",
+        }}
+      >
+        {/* Brand clouds — subtle, top-right only */}
+        <span className="cloud animate-drift" style={{ width: 130, height: 34, right: "6%", top: "20%" }} />
+        <span className="cloud" style={{ width: 70, height: 20, right: "20%", bottom: "22%" }} />
 
-        <div className="flex items-center gap-2 text-sm font-medium text-accent-text">
+        <div className="relative flex items-center gap-2 text-sm font-semibold text-white/80">
           <Rocket className="size-4" />
           {t("home.quickPlay")}
         </div>
-        <h1 className="mt-1.5 text-2xl font-semibold tracking-tight">
+        <h1 className="relative mt-1 text-2xl font-bold tracking-tight text-white">
           {t("home.quickPlayDesc")}
         </h1>
 
-        <div className="mt-5 flex flex-wrap items-end gap-3">
+        <div className="relative mt-4 flex flex-wrap items-end gap-3">
           <div className="w-44">
-            <span className="mb-1.5 block text-xs font-medium text-t3">
+            <span className="mb-1.5 block text-xs font-medium text-white/70">
               {t("home.version")}
             </span>
             <SelectWrap>
               <select
-                className="select-base"
+                className="select-base !border-white/25 !bg-white/15 !text-white backdrop-blur"
                 value={mcVersion}
                 onChange={(e) => setMcVersion(e.target.value)}
               >
@@ -156,11 +164,11 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
 
           {!activeAccount && (
             <div className="w-52">
-              <span className="mb-1.5 block text-xs font-medium text-t3">
+              <span className="mb-1.5 block text-xs font-medium text-white/70">
                 {t("home.nickname")}
               </span>
               <input
-                className="input-base"
+                className="input-base !border-white/25 !bg-white/15 !text-white placeholder-white/50 backdrop-blur"
                 placeholder="Steve"
                 value={nick}
                 onChange={(e) => setNick(e.target.value)}
@@ -169,7 +177,7 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
           )}
 
           <button
-            className="btn-primary h-[42px] !px-7"
+            className="inline-flex h-[42px] items-center gap-2 rounded-lg bg-white px-6 text-sm font-bold text-indigo-600 shadow-lg transition-all hover:bg-white/90 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
             disabled={quickBusy || quickRunning || !mcVersion}
             onClick={quickPlay}
           >
@@ -185,11 +193,13 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
         </div>
 
         {!activeAccount && (
-          <div className="mt-3 text-xs text-t3">{t("home.noAccountHint")}</div>
+          <div className="relative mt-3 text-xs text-white/70">
+            {t("home.noAccountHint")}
+          </div>
         )}
 
         {quickBusy && progress && (
-          <div className="mt-4 max-w-md">
+          <div className="relative mt-4 max-w-md">
             <ProgressBar value={progress.current / Math.max(1, progress.total)} />
           </div>
         )}

@@ -295,12 +295,27 @@ export function InstancePage({
         <ArrowLeft className="size-4" /> {t("instance.all")}
       </button>
 
-      <div className="card mb-4 p-5">
-        <div className="flex items-center gap-4">
+      <div className="card relative mb-4 overflow-hidden p-5">
+        {(() => {
+          const icon = instanceIconSrc(instance);
+          return icon ? (
+            <>
+              <img src={icon} alt="" className="banner-img !opacity-20 dark:!opacity-15" />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(180deg, transparent 0%, var(--card) 90%)",
+                }}
+              />
+            </>
+          ) : null;
+        })()}
+        <div className="relative flex items-center gap-4">
           {(() => {
             const icon = instanceIconSrc(instance);
             return icon ? (
-              <img src={icon} alt="" className="size-16 rounded-2xl object-cover" />
+              <img src={icon} alt="" className="size-16 rounded-2xl object-cover shadow-lg" />
             ) : (
               <div className="flex size-16 items-center justify-center rounded-2xl bg-accent-soft text-accent-text">
                 <Box className="size-8" />
@@ -354,7 +369,7 @@ export function InstancePage({
         </div>
 
         {busy && progress && (
-          <div className="mt-4">
+          <div className="relative mt-4">
             <div className="mb-1.5 flex justify-between text-xs text-t3">
               <span className="truncate pr-4">{progress.path.split(/[\\/]/).pop()}</span>
               <span>

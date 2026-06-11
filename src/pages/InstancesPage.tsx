@@ -88,33 +88,31 @@ function InstanceCard({
       ? status.progress.current / Math.max(1, status.progress.total)
       : null;
 
+  const icon = instanceIconSrc(instance);
+
+  // Loader-flavoured fallback gradient for the cover banner.
+  const LOADER_GRADIENTS: Record<string, string> = {
+    vanilla: "linear-gradient(135deg, #10b981 0%, #0ea5e9 120%)",
+    fabric: "linear-gradient(135deg, #f59e0b 0%, #f97316 120%)",
+    quilt: "linear-gradient(135deg, #d946ef 0%, #8b5cf6 120%)",
+    forge: "linear-gradient(135deg, #64748b 0%, #334155 120%)",
+    neoforge: "linear-gradient(135deg, #f97316 0%, #ef4444 120%)",
+  };
+
   return (
     <div
       onClick={onOpen}
-      className="card group flex cursor-pointer flex-col p-4 transition-all hover:-translate-y-0.5 hover:bg-card-hover"
+      className="card group cursor-pointer overflow-hidden !p-0 transition-all hover:-translate-y-0.5"
     >
-      <div className="flex items-start gap-3">
-        {(() => {
-          const icon = instanceIconSrc(instance);
-          return icon ? (
-            <img src={icon} alt="" className="size-12 rounded-xl object-cover" />
-          ) : (
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-text">
-              <Box className="size-6" />
-            </div>
-          );
-        })()}
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium tracking-tight text-t1">
-            {instance.name}
-          </div>
-          <div className="mt-1 flex items-center gap-1.5">
-            <LoaderBadge loader={instance.loader} />
-            <span className="text-xs text-t3">{instance.mcVersion}</span>
-          </div>
-        </div>
+      {/* Cover banner: blurred icon backdrop (or loader gradient) */}
+      <div
+        className="relative h-[72px] overflow-hidden"
+        style={!icon ? { background: LOADER_GRADIENTS[instance.loader] } : undefined}
+      >
+        {icon && <img src={icon} alt="" className="banner-img" />}
 
-        <div className="flex items-center gap-1">
+        {/* Hover play overlay */}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/25">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -122,24 +120,30 @@ function InstanceCard({
             }}
             disabled={busy}
             title={running ? t("common.stop") : t("common.play")}
-            className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-all active:scale-95 cursor-pointer disabled:cursor-default ${
+            className={`flex size-10 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 cursor-pointer disabled:cursor-default ${
               running
-                ? "bg-danger-soft text-danger"
-                : "bg-accent text-accent-fg opacity-0 group-hover:opacity-100 disabled:opacity-60"
-            } ${busy ? "!opacity-60" : ""}`}
+                ? "bg-danger text-white opacity-100"
+                : "btn-primary !rounded-full !p-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
+            } ${busy ? "!opacity-100 !scale-100" : ""}`}
           >
             {busy ? (
-              <Spinner />
+              <Spinner className="size-4" />
             ) : running ? (
               <Square className="size-4 fill-current" />
             ) : (
               <Play className="size-4 fill-current" />
             )}
           </button>
+        </div>
 
+        {/* Context menu (top-right of banner) */}
+        <div
+          className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Dropdown
             trigger={
-              <button className="btn-ghost !p-2 opacity-0 group-hover:opacity-100">
+              <button className="flex size-8 items-center justify-center rounded-lg bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/55 cursor-pointer">
                 <MoreVertical className="size-4" />
               </button>
             }
@@ -170,23 +174,44 @@ function InstanceCard({
         </div>
       </div>
 
-      <div className="mt-3.5 flex items-center gap-1.5 text-xs text-t3">
-        {label ? (
-          <span
-            className={
-              running ? "font-medium text-success" : "text-accent-text animate-pulse-soft"
-            }
-          >
-            {label}
-          </span>
-        ) : (
-          <>
-            <Clock className="size-3.5" />
-            {formatRelativeDate(instance.lastPlayed)}
-          </>
-        )}
+      {/* Body: floating icon + name + meta */}
+      <div className="relative px-3.5 pb-3.5">
+        <div className="-mt-6 mb-1.5 inline-block rounded-xl border-[3px] border-card bg-card shadow">
+          {icon ? (
+            <img src={icon} alt="" className="size-12 rounded-lg object-cover" />
+          ) : (
+            <div className="flex size-12 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
+              <Box className="size-6" />
+            </div>
+          )}
+        </div>
+
+        <div className="truncate font-semibold tracking-tight text-t1">
+          {instance.name}
+        </div>
+        <div className="mt-1 flex items-center gap-1.5">
+          <LoaderBadge loader={instance.loader} />
+          <span className="text-xs text-t3">{instance.mcVersion}</span>
+        </div>
+
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-t3">
+          {label ? (
+            <span
+              className={
+                running ? "font-medium text-success" : "text-accent-text animate-pulse-soft"
+              }
+            >
+              {label}
+            </span>
+          ) : (
+            <>
+              <Clock className="size-3.5" />
+              {formatRelativeDate(instance.lastPlayed)}
+            </>
+          )}
+        </div>
+        {progress !== null && busy && <ProgressBar value={progress} className="mt-2" />}
       </div>
-      {progress !== null && busy && <ProgressBar value={progress} className="mt-2" />}
     </div>
   );
 }
@@ -629,7 +654,7 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
     <div className="animate-fade-up">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             {t("instances.title")}
           </h1>
           <p className="mt-1 text-sm text-t3">

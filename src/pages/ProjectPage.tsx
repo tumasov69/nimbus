@@ -285,17 +285,30 @@ export function ProjectPage({
         <ArrowLeft className="size-4" /> {t("common.back")}
       </button>
 
-      <div className="card mb-4 p-5">
-        <div className="flex items-start gap-4">
+      <div className="card relative mb-4 overflow-hidden p-5">
+        {/* Blurred banner from the first gallery shot — store-page feel. */}
+        {gallery[0] && (
+          <>
+            <img src={gallery[0].url} alt="" className="banner-img !opacity-25 dark:!opacity-20" />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, transparent 0%, var(--card) 92%)",
+              }}
+            />
+          </>
+        )}
+        <div className="relative flex items-start gap-4">
           {project.icon_url ? (
             <img
               src={project.icon_url}
               alt=""
-              className="size-16 rounded-2xl object-cover bg-bg-soft"
+              className="size-20 rounded-2xl object-cover bg-bg-soft shadow-lg"
             />
           ) : (
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-bg-soft text-t3">
-              <Package className="size-8" />
+            <div className="flex size-20 items-center justify-center rounded-2xl bg-bg-soft text-t3">
+              <Package className="size-9" />
             </div>
           )}
           <div className="min-w-0 flex-1">

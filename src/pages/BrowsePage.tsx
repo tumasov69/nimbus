@@ -467,7 +467,7 @@ export function BrowsePage({
     <div className="animate-fade-up flex h-full flex-col">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("browse.title")}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("browse.title")}</h1>
           <p className="mt-1 text-sm text-t3">
             {contextInstance
               ? t("browse.installTo", {
@@ -656,7 +656,7 @@ export function BrowsePage({
                     instanceId,
                   })
                 }
-                className="card flex cursor-pointer items-center gap-4 p-4 transition-all hover:bg-card-hover"
+                className="card flex cursor-pointer items-center gap-4 p-4 transition-all hover:-translate-y-0.5 hover:bg-card-hover"
               >
                 {hit.icon_url ? (
                   <img
@@ -664,13 +664,13 @@ export function BrowsePage({
                     alt=""
                     loading="lazy"
                     decoding="async"
-                    width={48}
-                    height={48}
-                    className="size-12 shrink-0 rounded-xl object-cover bg-bg-soft"
+                    width={56}
+                    height={56}
+                    className="size-14 shrink-0 rounded-2xl object-cover bg-bg-soft shadow-sm"
                   />
                 ) : (
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-bg-soft text-t3">
-                    <Package className="size-6" />
+                  <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-bg-soft text-t3">
+                    <Package className="size-7" />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">

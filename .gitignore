@@ -37,3 +37,4 @@ src-tauri/gen/schemas
 
 # workflow added via GitHub web UI (token lacks workflow scope)
 .github/workflows/
+_patch_release.ps1

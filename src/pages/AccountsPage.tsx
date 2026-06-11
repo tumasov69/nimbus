@@ -47,7 +47,7 @@ export function AccountsPage() {
 
   return (
     <div className="animate-fade-up max-w-2xl">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("accounts.title")}</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("accounts.title")}</h1>
       <p className="mt-1 text-sm text-t3">{t("accounts.subtitle")}</p>
 
       <div className="mt-6 flex gap-2">

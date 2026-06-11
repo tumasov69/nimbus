@@ -40,9 +40,9 @@ export function Sidebar({
   return (
     <aside className="flex w-60 shrink-0 flex-col gap-1 p-4">
       <div className="mb-5 flex items-center gap-2.5 px-2 pt-1">
-        <img src={logo} alt="Nimbus" className="size-9 rounded-xl shadow-sm" />
+        <img src={logo} alt="Nimbus" className="size-9 rounded-lg shadow-sm" />
         <div>
-          <div className="text-[15px] font-semibold tracking-tight leading-none">
+          <div className="text-base font-bold tracking-tight leading-none text-hero">
             Nimbus
           </div>
           <div className="mt-1 text-[11px] text-t3 leading-none">

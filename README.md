@@ -16,6 +16,17 @@ A modern, lightweight Minecraft launcher built with **Tauri 2 + Rust + React**.
 - **Auto-updates** signed with minisign
 - **Optimized** — Rust backend, parallel downloads, ~10 MB binary, low memory use
 
+## Download
+
+Windows installers are published on the
+[Releases page](https://github.com/tumasov69/nimbus/releases/latest).
+
+## Code signing
+
+Free code signing for the Windows builds is provided by the
+[SignPath Foundation](https://signpath.org/) (certificate by SignPath Foundation),
+with a free code signing certificate from [SignPath.io](https://signpath.io/).
+
 ## Development
 
 ```bash

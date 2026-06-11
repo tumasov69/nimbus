@@ -3,92 +3,106 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---- Semantic design tokens (Fluent / Windows 11) ---- */
+/* ============ Nimbus Sky design system ============
+   Identity: indigo → sky gradient (clouds/sky), deep layered surfaces,
+   soft glow on primary actions, generous radii. */
 :root {
   color-scheme: light;
-  --bg: #f3f3f3;
+  --bg: #eef1f7;
   --bg-soft: rgb(15 23 42 / 0.05);
   --card: #ffffff;
   --card-solid: #ffffff;
-  --card-hover: #fafafa;
-  --stroke: rgb(15 23 42 / 0.08);
-  --stroke-strong: rgb(15 23 42 / 0.16);
-  --t1: #1b1b1b;
-  --t2: #4b5563;
-  --t3: #8b93a1;
-  --accent: #005fb8;
-  --accent-2: #0067c0;
+  --card-hover: #fbfcff;
+  --stroke: rgb(15 23 42 / 0.07);
+  --stroke-strong: rgb(15 23 42 / 0.15);
+  --t1: #111527;
+  --t2: #46506b;
+  --t3: #8a93ab;
+  --accent: #4f46e5;
+  --accent-2: #0ea5e9;
   --accent-fg: #ffffff;
-  --accent-soft: rgb(0 95 184 / 0.1);
-  --accent-text: #005fb8;
-  --danger: #d13438;
-  --danger-soft: rgb(209 52 56 / 0.09);
-  --success: #0f7b0f;
-  --success-soft: rgb(15 123 15 / 0.1);
+  --accent-soft: rgb(79 70 229 / 0.1);
+  --accent-text: #4f46e5;
+  --danger: #e11d48;
+  --danger-soft: rgb(225 29 72 / 0.09);
+  --success: #059669;
+  --success-soft: rgb(5 150 105 / 0.1);
   --shadow: 0 1px 3px rgb(15 23 42 / 0.06);
-  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.14);
-  --console-bg: #0f1420;
+  --shadow-lg: 0 14px 36px rgb(15 23 42 / 0.16);
+  --glow: 0 2px 10px rgb(79 70 229 / 0.25);
+  --console-bg: #0d1120;
+  --mesh-a: rgb(99 102 241 / 0.04);
+  --mesh-b: rgb(14 165 233 / 0.03);
 }
 
 .dark {
   color-scheme: dark;
-  --bg: #1c1c24;
-  --bg-soft: rgb(255 255 255 / 0.07);
-  --card: #272732;
-  --card-solid: #272732;
-  --card-hover: #2f2f3c;
-  --stroke: rgb(255 255 255 / 0.1);
-  --stroke-strong: rgb(255 255 255 / 0.18);
-  --t1: #f6f6f8;
-  --t2: #cdd2dd;
-  --t3: #9098a8;
-  --accent: #4cc2ff;
-  --accent-2: #60cdff;
-  --accent-fg: #0b1521;
-  --accent-soft: rgb(76 194 255 / 0.13);
-  --accent-text: #7ad1ff;
-  --danger: #ff99a4;
-  --danger-soft: rgb(255 153 164 / 0.12);
-  --success: #6ccb5f;
-  --success-soft: rgb(108 203 95 / 0.13);
-  --shadow: 0 1px 3px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55);
-  --console-bg: #0a0d14;
+  --bg: #11131c;
+  --bg-soft: rgb(255 255 255 / 0.06);
+  --card: #1a1d2b;
+  --card-solid: #1a1d2b;
+  --card-hover: #202434;
+  --stroke: rgb(255 255 255 / 0.08);
+  --stroke-strong: rgb(255 255 255 / 0.16);
+  --t1: #f3f4f8;
+  --t2: #c4cad9;
+  --t3: #828aa0;
+  --accent: #6366f1;
+  --accent-2: #38bdf8;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(129 140 248 / 0.13);
+  --accent-text: #a5b4fc;
+  --danger: #fb7185;
+  --danger-soft: rgb(251 113 133 / 0.12);
+  --success: #34d399;
+  --success-soft: rgb(52 211 153 / 0.12);
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 14px 40px rgb(0 0 0 / 0.55);
+  --glow: 0 2px 12px rgb(99 102 241 / 0.3);
+  --console-bg: #0a0d16;
+  --mesh-a: rgb(99 102 241 / 0.06);
+  --mesh-b: rgb(56 189 248 / 0.04);
 }
 
-/* Native Mica/Acrylic backdrop active: let the window effect show through.
-   Cards stay fairly opaque so text remains readable over any wallpaper. */
+/* Native Mica/Acrylic backdrop active: translucent surfaces over the
+   window effect. Cards stay fairly opaque for readability. */
 .mica {
-  --card: rgb(255 255 255 / 0.78);
+  --card: rgb(255 255 255 / 0.8);
   --card-hover: rgb(255 255 255 / 0.92);
-  --bg-soft: rgb(15 23 42 / 0.06);
 }
 .mica.dark {
-  --card: rgb(39 39 50 / 0.78);
-  --card-hover: rgb(47 47 60 / 0.9);
-  --bg-soft: rgb(255 255 255 / 0.07);
+  --card: rgb(26 29 43 / 0.8);
+  --card-hover: rgb(32 36 52 / 0.9);
 }
 .mica body {
   background: transparent;
 }
+.mica body::before {
+  opacity: 0.6;
+}
 
-/* OLED: true black, higher-contrast strokes; disables Mica transparency. */
+/* OLED: true black, kills mica transparency and the mesh. */
 .oled {
   --bg: #000000;
   --bg-soft: rgb(255 255 255 / 0.09);
-  --card: #0c0c11;
-  --card-solid: #0c0c11;
-  --card-hover: #15151c;
-  --stroke: rgb(255 255 255 / 0.13);
+  --card: #0b0d14;
+  --card-solid: #0b0d14;
+  --card-hover: #141722;
+  --stroke: rgb(255 255 255 / 0.12);
   --stroke-strong: rgb(255 255 255 / 0.22);
   --console-bg: #000000;
+  --mesh-a: transparent;
+  --mesh-b: transparent;
 }
 .oled body {
   background: var(--bg);
 }
+.oled body::before {
+  display: none;
+}
 
 @theme inline {
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Inter Variable", system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --color-bg: var(--bg);
   --color-bg-soft: var(--bg-soft);
   --color-card: var(--card);
@@ -119,6 +133,23 @@ body,
 body {
   @apply bg-bg text-t1 antialiased font-sans select-none;
   overscroll-behavior: none;
+  position: relative;
+}
+
+/* Ambient gradient mesh — gives the whole app depth and "air". */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(900px 500px at 8% -10%, var(--mesh-a), transparent 60%),
+    radial-gradient(800px 460px at 100% 0%, var(--mesh-b), transparent 55%);
+}
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 input,
@@ -146,13 +177,12 @@ textarea {
   background-clip: content-box;
 }
 
-/* ---- Reusable surfaces & controls ---- */
+/* ---- Surfaces & controls ---- */
 @utility card {
   @apply bg-card rounded-xl border border-stroke;
   box-shadow: var(--shadow);
 }
 
-/* Interactive cards get a clearer hover affordance. */
 .card.cursor-pointer:hover,
 .card.group:hover {
   border-color: var(--stroke-strong);
@@ -164,9 +194,9 @@ textarea {
 
 @utility btn-primary {
   @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 130%);
   color: var(--accent-fg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glow);
 }
 .btn-primary:hover {
   filter: brightness(1.08);
@@ -188,14 +218,14 @@ textarea {
   @apply w-full rounded-lg border border-stroke-strong bg-card px-3.5 py-2.5 text-sm text-t1 placeholder-t3 outline-none transition-all focus:border-accent;
 }
 .input-base:focus {
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 @utility select-base {
   @apply w-full appearance-none rounded-lg border border-stroke-strong bg-card px-3.5 py-2.5 pr-9 text-sm text-t1 outline-none transition-all focus:border-accent cursor-pointer;
 }
 .select-base:focus {
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 .select-base option {
   background: var(--card-solid);
@@ -205,6 +235,56 @@ textarea {
 @utility tab-active {
   @apply bg-card text-accent-text border border-stroke;
   box-shadow: var(--shadow);
+}
+
+/* Gradient text for hero headings. */
+@utility text-hero {
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Banner backdrop inside cover cards: blurred, dimmed image. */
+.banner-img {
+  position: absolute;
+  inset: -20%;
+  width: 140%;
+  height: 140%;
+  object-fit: cover;
+  filter: blur(22px) saturate(1.3);
+  opacity: 0.55;
+}
+.dark .banner-img {
+  opacity: 0.4;
+}
+
+/* Decorative CSS clouds (brand motif) for hero blocks. */
+.cloud {
+  position: absolute;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.04));
+  border-radius: 9999px;
+  filter: blur(1px);
+  pointer-events: none;
+}
+.cloud::before,
+.cloud::after {
+  content: "";
+  position: absolute;
+  background: inherit;
+  border-radius: 9999px;
+}
+.cloud::before {
+  width: 55%;
+  height: 160%;
+  left: 12%;
+  top: -75%;
+}
+.cloud::after {
+  width: 40%;
+  height: 120%;
+  right: 14%;
+  top: -45%;
 }
 
 /* ---- Markdown body (Modrinth project descriptions) ---- */
@@ -236,6 +316,8 @@ textarea {
 .md-body table { @apply my-3 w-full text-left text-xs; }
 .md-body th, .md-body td { @apply border border-stroke px-2 py-1.5; }
 .md-body hr { @apply my-4 border-stroke; }
+.md-body details { @apply my-2 rounded-xl border border-stroke bg-bg-soft px-3 py-2; }
+.md-body summary { @apply cursor-pointer font-medium text-t1; }
 
 /* ---- Animations ---- */
 @keyframes fade-up {
@@ -260,4 +342,12 @@ textarea {
 }
 .animate-pulse-soft {
   animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+@keyframes drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(14px); }
+}
+.animate-drift {
+  animation: drift 7s ease-in-out infinite alternate;
 }
