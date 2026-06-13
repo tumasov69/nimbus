@@ -55,7 +55,7 @@
       "endpoints": [
         "https://github.com/tumasov69/nimbus/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE4OERFQjNDRDU4QzAzQUMKUldTc0E0elZQT3VOR0owQzVXdUxhMllMZ09sT3hONU9NeDVCZWNlMWxEN0ZCN1VWWTQ4RUxxVTAK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ0NTNGQzkzQURDNEFENTQKUldSVXJjU3RrL3hUMU93VVFuTW5kNGw3dWh3alFpRlFDeG1iVy82VHBKNkNQdFZQTHFvdXFGRUUK"
     }
   }
 }
