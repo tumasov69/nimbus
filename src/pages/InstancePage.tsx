@@ -59,6 +59,7 @@ export function InstancePage({
   const [showRename, setShowRename] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const enrichSeq = useRef(0);
 
   const busy =
     status && ["preparing", "installing", "launching"].includes(status.state);
@@ -71,6 +72,9 @@ export function InstancePage({
 
   const loadMods = useCallback(
     async (forceEnrich = false) => {
+      // Each call gets a sequence number; a slow enrichment from an earlier call
+      // must not overwrite the result of a newer one (toggle/delete/update).
+      const seq = ++enrichSeq.current;
       setModsLoading(true);
       try {
         setMods(await api.listMods(id, contentFolder));
@@ -85,6 +89,7 @@ export function InstancePage({
       api
         .modrinthEnrichMods(id, forceEnrich)
         .then((list) => {
+          if (seq !== enrichSeq.current) return;
           const map: Record<string, api.ModInfo> = {};
           for (const info of list) map[info.fileName] = info;
           setModInfo(map);
@@ -295,7 +300,7 @@ export function InstancePage({
         <ArrowLeft className="size-4" /> {t("instance.all")}
       </button>
 
-      <div className="card relative mb-4 overflow-hidden p-5">
+      <div className="card relative mb-3 overflow-hidden p-4">
         {(() => {
           const icon = instanceIconSrc(instance);
           return icon ? (
@@ -311,7 +316,7 @@ export function InstancePage({
             </>
           ) : null;
         })()}
-        <div className="relative flex items-center gap-4">
+        <div className="relative flex flex-wrap items-center gap-3">
           {(() => {
             const icon = instanceIconSrc(instance);
             return icon ? (
@@ -322,7 +327,7 @@ export function InstancePage({
               </div>
             );
           })()}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-40 flex-1">
             <h1 className="truncate text-xl font-semibold tracking-tight">
               {instance.name}
             </h1>
@@ -729,6 +734,9 @@ function OverridesCard({ instanceId }: { instanceId: string }) {
   const [local, setLocal] = useState<InstanceOverrides | null>(
     instance?.overrides ?? null,
   );
+
+  // Cancel a pending debounced save if the card unmounts (tab switch / navigate).
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
 
   if (!instance || !settings) return null;
 

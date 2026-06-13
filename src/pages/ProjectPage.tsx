@@ -3,6 +3,7 @@ import {
   Download,
   ExternalLink,
   Heart,
+  Languages,
   Package,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -100,7 +101,7 @@ export function ProjectPage({
   instanceId?: string;
   navigate: (r: Route) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { instances, toast, refreshInstances } = useStore();
   const contextInstance = instances.find((i) => i.id === instanceId);
 
@@ -116,6 +117,51 @@ export function ProjectPage({
   const [deps, setDeps] = useState<DepProject[] | null>(null);
   const [depsLoaded, setDepsLoaded] = useState(false);
   const [lightbox, setLightbox] = useState<GalleryImage | null>(null);
+  const [descTr, setDescTr] = useState<string | null>(null);
+  const [bodyTr, setBodyTr] = useState<string | null>(null);
+  const [showTr, setShowTr] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const lang = i18n.language.split("-")[0];
+
+  // Auto-translate the short description into the UI language (cheap, cached).
+  useEffect(() => {
+    setDescTr(null);
+    setBodyTr(null);
+    setShowTr(false);
+    if (lang === "en" || !project?.description) return;
+    let cancelled = false;
+    api
+      .translateTexts([project.description], lang)
+      .then((r) => !cancelled && setDescTr(r[0] ?? null))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.description, lang]);
+
+  const toggleBodyTranslation = async () => {
+    if (showTr) {
+      setShowTr(false);
+      return;
+    }
+    if (bodyTr) {
+      setShowTr(true);
+      return;
+    }
+    if (!project?.body) return;
+    setTranslating(true);
+    try {
+      // Translate paragraph by paragraph to stay within the API's size limit.
+      const blocks = project.body.split(/\n\n+/);
+      const translated = await api.translateTexts(blocks, lang);
+      setBodyTr(translated.join("\n\n"));
+      setShowTr(true);
+    } catch (e) {
+      toast("error", errorText(e));
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   // The project body renders the page; versions can be megabytes of JSON for
   // popular mods, so they load independently and never block first paint.
@@ -313,7 +359,7 @@ export function ProjectPage({
           )}
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold tracking-tight">{project.title}</h1>
-            <p className="mt-1 text-sm text-t2">{project.description}</p>
+            <p className="mt-1 text-sm text-t2">{descTr ?? project.description}</p>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-t3">
               <span className="inline-flex items-center gap-1">
                 <Download className="size-3" />
@@ -401,12 +447,22 @@ export function ProjectPage({
       <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-4">
         {tab === "about" && (
           <div className="card p-6">
+            {lang !== "en" && project.body && (
+              <button
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-bg-soft px-2.5 py-1.5 text-xs font-medium text-t2 transition-colors hover:text-t1 cursor-pointer"
+                disabled={translating}
+                onClick={toggleBodyTranslation}
+              >
+                {translating ? <Spinner className="size-3.5" /> : <Languages className="size-3.5" />}
+                {showTr ? t("project.original") : t("project.translate")}
+              </button>
+            )}
             <div className="md-body">
               <Markdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
               >
-                {project.body ?? ""}
+                {(showTr ? bodyTr : project.body) ?? ""}
               </Markdown>
             </div>
           </div>

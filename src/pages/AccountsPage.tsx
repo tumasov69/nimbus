@@ -1,5 +1,4 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, Plus, Shirt, Trash2, User } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -47,7 +46,7 @@ export function AccountsPage() {
 
   return (
     <div className="animate-fade-up max-w-2xl">
-      <h1 className="text-2xl font-bold tracking-tight">{t("accounts.title")}</h1>
+      <h1 className="text-xl font-bold tracking-tight">{t("accounts.title")}</h1>
       <p className="mt-1 text-sm text-t3">{t("accounts.subtitle")}</p>
 
       <div className="mt-6 flex gap-2">
@@ -174,11 +173,34 @@ function SkinModal({
 }) {
   const { t } = useTranslation();
   const { toast } = useStore();
+  const [tab, setTab] = useState<"gallery" | "nick" | "file">("gallery");
   const [variant, setVariant] = useState<"classic" | "slim">("classic");
   const [busy, setBusy] = useState(false);
-  const [picked, setPicked] = useState<{ path: string; preview: string } | null>(
-    null,
-  );
+  // The pending skin to apply: either a texture URL (gallery/nick) or a file.
+  const [pending, setPending] = useState<
+    | { kind: "url"; url: string; preview: string }
+    | { kind: "file"; path: string; preview: string }
+    | null
+  >(null);
+  const [nick, setNick] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  const selectPlayer = async (username: string) => {
+    setSearching(true);
+    try {
+      const skin = await api.getPlayerSkin(username);
+      setPending({
+        kind: "url",
+        url: skin.skinUrl,
+        preview: `https://mc-heads.net/body/${skin.uuid}/140`,
+      });
+      setVariant(skin.slim ? "slim" : "classic");
+    } catch (e) {
+      toast("error", errorText(e));
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const pickFile = async () => {
     const path = await openDialog({
@@ -188,17 +210,21 @@ function SkinModal({
     if (typeof path !== "string") return;
     try {
       const preview = await api.readImagePreview(path);
-      setPicked({ path, preview });
+      setPending({ kind: "file", path, preview });
     } catch (e) {
       toast("error", errorText(e));
     }
   };
 
-  const upload = async () => {
-    if (!picked) return;
+  const apply = async () => {
+    if (!pending) return;
     setBusy(true);
     try {
-      await api.setSkin(account.id, picked.path, variant);
+      if (pending.kind === "file") {
+        await api.setSkin(account.id, pending.path, variant);
+      } else {
+        await api.setSkinFromUrl(account.id, pending.url, variant);
+      }
       toast("success", t("accounts.skinChanged"));
       onClose();
     } catch (e) {
@@ -209,77 +235,151 @@ function SkinModal({
   };
 
   return (
-    <Modal title={t("accounts.changeSkin")} onClose={onClose}>
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-5">
-          {/* Current skin */}
-          <div className="text-center">
-            <div className="mb-1 text-xs font-medium text-t3">
-              {t("accounts.skinCurrent")}
-            </div>
+    <Modal title={t("accounts.changeSkin")} onClose={onClose} width="max-w-2xl">
+      <div className="flex gap-5">
+        {/* Left: live preview + model variant (fixed width) */}
+        <div className="flex w-52 shrink-0 flex-col items-center">
+          <div className="mb-2 text-xs font-medium text-t3">
+            {pending ? t("accounts.skinNew") : t("accounts.skinCurrent")}
+          </div>
+          <div className="flex h-64 w-full items-center justify-center rounded-xl bg-bg-soft">
             <img
-              src={`https://mc-heads.net/body/${account.uuid}/100`}
+              src={
+                pending
+                  ? pending.preview
+                  : `https://mc-heads.net/body/${account.uuid}/180`
+              }
               alt=""
-              className="h-40 object-contain"
+              className="h-56 object-contain"
+              style={pending?.kind === "file" ? { imageRendering: "pixelated" } : undefined}
             />
           </div>
-
-          {/* New skin preview (pixelated texture) */}
-          {picked && (
-            <div className="text-center">
-              <div className="mb-1 text-xs font-medium text-t3">
-                {t("accounts.skinNew")}
-              </div>
-              <img
-                src={picked.preview}
-                alt=""
-                className="h-40 w-40 rounded-lg border border-stroke object-contain bg-bg-soft"
-                style={{ imageRendering: "pixelated" }}
-              />
-            </div>
-          )}
-
-          <div className="flex-1">
-            <div className="mb-1.5 text-sm font-medium text-t2">
-              {t("accounts.skinModel")}
-            </div>
-            <div className="flex gap-1.5">
-              {(["classic", "slim"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVariant(v)}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all cursor-pointer ${
-                    variant === v
-                      ? "border-accent bg-accent-soft text-accent-text"
-                      : "border-stroke-strong text-t3 hover:text-t1"
-                  }`}
-                >
-                  {v === "classic" ? t("accounts.skinClassic") : t("accounts.skinSlim")}
-                </button>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-t3">{t("accounts.skinHint")}</p>
-            <button
-              className="mt-2 text-xs font-medium text-accent-text hover:underline cursor-pointer"
-              onClick={() => openUrl("https://ru.namemc.com/minecraft-skins").catch(() => {})}
-            >
-              {t("accounts.skinBrowse")} ↗
-            </button>
+          <div className="mt-3 grid w-full grid-cols-2 gap-2">
+            {(["classic", "slim"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setVariant(v)}
+                className={`rounded-lg border px-2 py-2 text-xs font-medium transition-all cursor-pointer ${
+                  variant === v
+                    ? "border-accent bg-accent-soft text-accent-text"
+                    : "border-stroke-strong text-t3 hover:text-t1"
+                }`}
+              >
+                {v === "classic" ? t("accounts.skinClassic") : t("accounts.skinSlim")}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <button className="btn-secondary" onClick={onClose}>
-            {t("common.cancel")}
-          </button>
-          <button className="btn-secondary" onClick={pickFile}>
-            {t("accounts.skinUpload")}
-          </button>
-          <button className="btn-primary" disabled={!picked || busy} onClick={upload}>
-            {busy ? <Spinner /> : <Shirt className="size-4" />}
-            {t("accounts.skinApply")}
-          </button>
+
+        {/* Right: source tabs — fixed-height area so the modal never jumps */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="mb-3 flex gap-1">
+            {(
+              [
+                ["gallery", t("accounts.skinGallery")],
+                ["nick", t("accounts.skinByNick")],
+                ["file", t("accounts.skinFile")],
+              ] as ["gallery" | "nick" | "file", string][]
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                  tab === key ? "tab-active" : "text-t3 hover:bg-accent-soft hover:text-t1"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="h-64">
+            {tab === "gallery" && (
+              <div className="grid h-64 grid-cols-4 content-start gap-2 overflow-y-auto pr-1">
+                {SKIN_GALLERY.map((g) => (
+                  <button
+                    key={g.user}
+                    onClick={() => selectPlayer(g.user)}
+                    title={g.label}
+                    className="group flex flex-col items-center rounded-lg border border-stroke bg-card p-1.5 transition-all hover:border-accent cursor-pointer"
+                  >
+                    <img
+                      src={`https://mc-heads.net/body/${g.user}/72`}
+                      alt=""
+                      loading="lazy"
+                      className="h-16 object-contain"
+                    />
+                    <span className="mt-0.5 max-w-full truncate text-[10px] text-t3">
+                      {g.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {tab === "nick" && (
+              <div>
+                <p className="mb-2 text-xs text-t3">{t("accounts.skinByNickHint")}</p>
+                <div className="flex gap-2">
+                  <input
+                    className="input-base min-w-0"
+                    placeholder="Notch"
+                    value={nick}
+                    onChange={(e) => setNick(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && nick.trim() && selectPlayer(nick)}
+                  />
+                  <button
+                    className="btn-secondary shrink-0"
+                    disabled={!nick.trim() || searching}
+                    onClick={() => selectPlayer(nick)}
+                  >
+                    {searching ? <Spinner /> : t("accounts.skinFind")}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {tab === "file" && (
+              <div>
+                <p className="mb-2 text-xs text-t3">{t("accounts.skinHint")}</p>
+                <button className="btn-secondary" onClick={pickFile}>
+                  {t("accounts.skinUpload")}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+
+      <div className="mt-4 flex justify-end gap-2">
+        <button className="btn-secondary" onClick={onClose}>
+          {t("common.cancel")}
+        </button>
+        <button className="btn-primary" disabled={!pending || busy} onClick={apply}>
+          {busy ? <Spinner /> : <Shirt className="size-4" />}
+          {t("accounts.skinApply")}
+        </button>
       </div>
     </Modal>
   );
 }
+
+// Curated gallery of cool/iconic skins (rendered & applied by username).
+const SKIN_GALLERY: { user: string; label: string }[] = [
+  { user: "Notch", label: "Notch" },
+  { user: "jeb_", label: "jeb_" },
+  { user: "Technoblade", label: "Technoblade" },
+  { user: "Dream", label: "Dream" },
+  { user: "GeorgeNotFound", label: "George" },
+  { user: "Sapnap", label: "Sapnap" },
+  { user: "TommyInnit", label: "TommyInnit" },
+  { user: "Tubbo_", label: "Tubbo" },
+  { user: "Ph1LzA", label: "Philza" },
+  { user: "Ranboosaysstuff", label: "Ranboo" },
+  { user: "Skeppy", label: "Skeppy" },
+  { user: "BadBoyHalo", label: "BadBoyHalo" },
+  { user: "CaptainSparklez", label: "Sparklez" },
+  { user: "Grian", label: "Grian" },
+  { user: "Mumbo", label: "Mumbo" },
+  { user: "iJevin", label: "iJevin" },
+];

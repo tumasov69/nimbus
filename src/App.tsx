@@ -118,7 +118,7 @@ function Shell() {
       <ForcedUpdateOverlay />
       <Sidebar route={route} navigate={setRoute} />
       <UpdatePill />
-      <main className="min-w-0 flex-1 overflow-y-auto p-6 pl-2">
+      <main className="min-w-0 flex-1 overflow-y-auto px-5 py-4 pl-1">
         <div className="h-full">
           {route.page === "home" && <HomePage navigate={setRoute} />}
           {route.page === "instances" && <InstancesPage navigate={setRoute} />}

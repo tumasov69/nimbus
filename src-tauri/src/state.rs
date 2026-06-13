@@ -21,6 +21,7 @@ pub struct AppState {
     pub busy: Mutex<HashSet<String>>,
     pub mc_manifest_cache: Mutex<Option<serde_json::Value>>,
     pub modrinth_tags: Mutex<Option<serde_json::Value>>,
+    pub translation_cache: Mutex<HashMap<String, String>>,
     pub discord: Mutex<Option<discord_rich_presence::DiscordIpcClient>>,
 }
 
@@ -57,6 +58,7 @@ impl AppState {
             busy: Mutex::new(HashSet::new()),
             mc_manifest_cache: Mutex::new(None),
             modrinth_tags: Mutex::new(None),
+            translation_cache: Mutex::new(HashMap::new()),
             discord: Mutex::new(None),
         }
     }

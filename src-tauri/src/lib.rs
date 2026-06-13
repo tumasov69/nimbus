@@ -20,14 +20,14 @@ pub fn run() {
                 let _ = win.set_focus();
             }
         }))
-        // Restore size/position but NOT visibility: the window stays hidden
-        // until the frontend is ready (prevents the resize flash on startup).
+        // Remember only the maximized state — NOT position or size. The window
+        // is configured with `center: true`, so each launch opens centered on
+        // the monitor at the comfortable default size (a previous move/resize
+        // won't carry over). Visibility is excluded too: the window stays hidden
+        // until the UI is ready (no startup flash).
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::all()
-                        & !tauri_plugin_window_state::StateFlags::VISIBLE,
-                )
+                .with_state_flags(tauri_plugin_window_state::StateFlags::MAXIMIZED)
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
@@ -98,6 +98,8 @@ pub fn run() {
             commands::accounts::set_active_account,
             commands::accounts::login_microsoft,
             commands::accounts::set_skin,
+            commands::accounts::set_skin_from_url,
+            commands::accounts::get_player_skin,
             commands::accounts::read_image_preview,
             commands::modrinth::modrinth_search,
             commands::modrinth::modrinth_categories,
@@ -111,6 +113,7 @@ pub fn run() {
             commands::modrinth::modrinth_update_mod,
             commands::modrinth::modrinth_check_modpack_update,
             commands::modrinth::modrinth_update_modpack,
+            commands::translate::translate_texts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

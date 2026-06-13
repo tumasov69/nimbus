@@ -60,7 +60,10 @@ pub fn decrypt(value: &str) -> String {
         return value.to_string();
     };
     match dpapi(&bytes, false) {
-        Some(dec) => String::from_utf8_lossy(&dec).into_owned(),
+        // A valid token is always UTF-8; if decryption yields non-UTF-8 bytes the
+        // blob is corrupt, so fall back to the stored value (auth then fails
+        // cleanly and prompts re-login) rather than emitting a mangled token.
+        Some(dec) => String::from_utf8(dec).unwrap_or_else(|_| value.to_string()),
         None => value.to_string(),
     }
 }

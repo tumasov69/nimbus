@@ -37,31 +37,31 @@
 
 .dark {
   color-scheme: dark;
-  --bg: #11131c;
-  --bg-soft: rgb(255 255 255 / 0.06);
-  --card: #1a1d2b;
-  --card-solid: #1a1d2b;
-  --card-hover: #202434;
+  --bg: #0b0d12;
+  --bg-soft: rgb(255 255 255 / 0.05);
+  --card: #15171f;
+  --card-solid: #15171f;
+  --card-hover: #1d2029;
   --stroke: rgb(255 255 255 / 0.08);
-  --stroke-strong: rgb(255 255 255 / 0.16);
-  --t1: #f3f4f8;
-  --t2: #c4cad9;
-  --t3: #828aa0;
-  --accent: #6366f1;
+  --stroke-strong: rgb(255 255 255 / 0.15);
+  --t1: #f4f5f9;
+  --t2: #b9c0ce;
+  --t3: #79808f;
+  --accent: #6e79ff;
   --accent-2: #38bdf8;
   --accent-fg: #ffffff;
-  --accent-soft: rgb(129 140 248 / 0.13);
-  --accent-text: #a5b4fc;
+  --accent-soft: rgb(110 121 255 / 0.15);
+  --accent-text: #b3baff;
   --danger: #fb7185;
-  --danger-soft: rgb(251 113 133 / 0.12);
+  --danger-soft: rgb(251 113 133 / 0.13);
   --success: #34d399;
-  --success-soft: rgb(52 211 153 / 0.12);
-  --shadow: 0 1px 3px rgb(0 0 0 / 0.35);
-  --shadow-lg: 0 14px 40px rgb(0 0 0 / 0.55);
-  --glow: 0 2px 12px rgb(99 102 241 / 0.3);
-  --console-bg: #0a0d16;
-  --mesh-a: rgb(99 102 241 / 0.06);
-  --mesh-b: rgb(56 189 248 / 0.04);
+  --success-soft: rgb(52 211 153 / 0.13);
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 16px 44px rgb(0 0 0 / 0.6);
+  --glow: 0 2px 14px rgb(110 121 255 / 0.35);
+  --console-bg: #07090e;
+  --mesh-a: rgb(110 121 255 / 0.07);
+  --mesh-b: rgb(56 189 248 / 0.05);
 }
 
 /* Native Mica/Acrylic backdrop active: translucent surfaces over the
@@ -194,12 +194,11 @@ textarea {
 
 @utility btn-primary {
   @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 130%);
+  background: var(--accent);
   color: var(--accent-fg);
-  box-shadow: var(--glow);
 }
 .btn-primary:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.07);
 }
 
 @utility btn-secondary {

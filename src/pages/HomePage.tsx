@@ -1,4 +1,4 @@
-import { Box, Play, Rocket, Square } from "lucide-react";
+import { Box, Compass, Download, Play, Rocket, Square } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
@@ -7,11 +7,15 @@ import {
   ProgressBar,
   SelectWrap,
   Spinner,
+  formatDownloads,
   formatRelativeDate,
 } from "../components/ui";
 import type { Route } from "../routes";
 import { errorText, useStore } from "../store";
-import type { Instance, McVersion } from "../types";
+import type { Instance, McVersion, SearchHit } from "../types";
+
+// Cache popular modpacks for the session so Home loads instantly on revisits.
+let popularCache: SearchHit[] | null = null;
 
 export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   const { t } = useTranslation();
@@ -28,8 +32,27 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   const [mcVersion, setMcVersion] = useState("");
   const [nick, setNick] = useState("");
   const [launching, setLaunching] = useState(false);
+  const [popular, setPopular] = useState<SearchHit[]>(popularCache ?? []);
 
   const activeAccount = accounts.accounts.find((a) => a.id === accounts.active);
+
+  // Discovery: most-downloaded modpacks from Modrinth (cached for the session).
+  useEffect(() => {
+    if (popularCache) return;
+    api
+      .modrinthSearch({
+        query: "",
+        projectType: "modpack",
+        offset: 0,
+        limit: 10,
+        index: "downloads",
+      })
+      .then((r) => {
+        popularCache = r.hits;
+        setPopular(r.hits);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     api
@@ -121,28 +144,29 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   const progress = quickStatus?.progress;
 
   return (
-    <div className="animate-fade-up flex flex-col gap-4">
+    <div className="animate-fade-up flex flex-col gap-3">
       {/* Hero / quick play */}
       <div
-        className="relative overflow-hidden rounded-xl border border-stroke p-6"
+        className="relative overflow-hidden rounded-xl border border-stroke px-5 py-4"
         style={{
           background:
             "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 135%)",
         }}
       >
         {/* Brand clouds — subtle, top-right only */}
-        <span className="cloud animate-drift" style={{ width: 130, height: 34, right: "6%", top: "20%" }} />
-        <span className="cloud" style={{ width: 70, height: 20, right: "20%", bottom: "22%" }} />
+        <span className="cloud animate-drift" style={{ width: 120, height: 30, right: "5%", top: "16%" }} />
+        <span className="cloud" style={{ width: 60, height: 18, right: "20%", bottom: "18%" }} />
 
-        <div className="relative flex items-center gap-2 text-sm font-semibold text-white/80">
-          <Rocket className="size-4" />
-          {t("home.quickPlay")}
-        </div>
-        <h1 className="relative mt-1 text-2xl font-bold tracking-tight text-white">
-          {t("home.quickPlayDesc")}
-        </h1>
-
-        <div className="relative mt-4 flex flex-wrap items-end gap-3">
+        <div className="relative flex flex-wrap items-end gap-3">
+          <div className="mr-auto">
+            <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
+              <Rocket className="size-3.5" />
+              {t("home.quickPlay")}
+            </div>
+            <h1 className="mt-0.5 text-xl font-bold tracking-tight text-white">
+              {t("home.quickPlayDesc")}
+            </h1>
+          </div>
           <div className="w-44">
             <span className="mb-1.5 block text-xs font-medium text-white/70">
               {t("home.version")}
@@ -208,7 +232,7 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
       {/* Continue playing */}
       {lastPlayed && (
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-t3">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-t3">
             {t("home.continueTitle")}
           </h2>
           <ContinueCard
@@ -227,10 +251,10 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
       {/* Recent instances */}
       {recent.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-t3">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-t3">
             {t("home.recent")}
           </h2>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-2.5">
             {recent.map((inst) => (
               <button
                 key={inst.id}
@@ -251,6 +275,60 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
                   <div className="mt-0.5 flex items-center gap-1.5 text-xs text-t3">
                     <LoaderBadge loader={inst.loader} />
                     {inst.mcVersion}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Discovery: popular modpacks from Modrinth */}
+      {popular.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-t3">
+              {t("home.popular")}
+            </h2>
+            <button
+              className="flex items-center gap-1 text-xs font-medium text-accent-text hover:underline cursor-pointer"
+              onClick={() => navigate({ page: "browse", projectType: "modpack" })}
+            >
+              <Compass className="size-3.5" />
+              {t("home.allModpacks")}
+            </button>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-2.5">
+            {popular.slice(0, 8).map((hit) => (
+              <button
+                key={hit.project_id}
+                onClick={() =>
+                  navigate({
+                    page: "project",
+                    projectId: hit.project_id,
+                    projectType: "modpack",
+                  })
+                }
+                className="card flex items-center gap-3 p-3 text-left transition-all hover:bg-card-hover hover:-translate-y-0.5 cursor-pointer"
+              >
+                {hit.icon_url ? (
+                  <img
+                    src={hit.icon_url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="size-11 shrink-0 rounded-lg object-cover bg-bg-soft"
+                  />
+                ) : (
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-bg-soft text-t3">
+                    <Box className="size-5" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-t1">{hit.title}</div>
+                  <div className="mt-0.5 flex items-center gap-1 text-xs text-t3">
+                    <Download className="size-3" />
+                    {formatDownloads(hit.downloads)}
                   </div>
                 </div>
               </button>

@@ -14,10 +14,10 @@
       {
         "title": "Nimbus",
         "label": "main",
-        "width": 1180,
-        "height": 740,
-        "minWidth": 960,
-        "minHeight": 620,
+        "width": 1320,
+        "height": 850,
+        "minWidth": 1040,
+        "minHeight": 700,
         "center": true,
         "transparent": true,
         "visible": false

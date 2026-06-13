@@ -106,7 +106,7 @@ function InstanceCard({
     >
       {/* Cover banner: blurred icon backdrop (or loader gradient) */}
       <div
-        className="relative h-[72px] overflow-hidden"
+        className="relative h-20 overflow-hidden"
         style={!icon ? { background: LOADER_GRADIENTS[instance.loader] } : undefined}
       >
         {icon && <img src={icon} alt="" className="banner-img" />}
@@ -120,18 +120,18 @@ function InstanceCard({
             }}
             disabled={busy}
             title={running ? t("common.stop") : t("common.play")}
-            className={`flex size-10 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 cursor-pointer disabled:cursor-default ${
+            className={`flex size-12 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 cursor-pointer disabled:cursor-default ${
               running
                 ? "bg-danger text-white opacity-100"
                 : "btn-primary !rounded-full !p-0 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
             } ${busy ? "!opacity-100 !scale-100" : ""}`}
           >
             {busy ? (
-              <Spinner className="size-4" />
+              <Spinner className="size-5" />
             ) : running ? (
-              <Square className="size-4 fill-current" />
+              <Square className="size-5 fill-current" />
             ) : (
-              <Play className="size-4 fill-current" />
+              <Play className="size-5 fill-current" />
             )}
           </button>
         </div>
@@ -176,7 +176,7 @@ function InstanceCard({
 
       {/* Body: floating icon + name + meta */}
       <div className="relative px-3.5 pb-3.5">
-        <div className="-mt-6 mb-1.5 inline-block rounded-xl border-[3px] border-card bg-card shadow">
+        <div className="-mt-7 mb-1.5 inline-block rounded-xl border-[3px] border-card bg-card shadow-sm">
           {icon ? (
             <img src={icon} alt="" className="size-12 rounded-lg object-cover" />
           ) : (
@@ -186,7 +186,7 @@ function InstanceCard({
           )}
         </div>
 
-        <div className="truncate font-semibold tracking-tight text-t1">
+        <div className="truncate text-[15px] font-semibold tracking-tight text-t1">
           {instance.name}
         </div>
         <div className="mt-1 flex items-center gap-1.5">
@@ -194,7 +194,7 @@ function InstanceCard({
           <span className="text-xs text-t3">{instance.mcVersion}</span>
         </div>
 
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-t3">
+        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-t3">
           {label ? (
             <span
               className={
@@ -652,12 +652,12 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
 
   return (
     <div className="animate-fade-up">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-xl font-bold tracking-tight">
             {t("instances.title")}
           </h1>
-          <p className="mt-1 text-sm text-t3">
+          <p className="mt-0.5 text-xs text-t3">
             {instances.length > 0
               ? t("instances.count", { n: instances.length })
               : t("instances.emptySubtitle")}
@@ -711,7 +711,7 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
                 </button>
               ))}
             </div>
-            <div className="relative ml-auto w-56">
+            <div className="relative ml-auto w-48 min-w-40 max-w-full flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-t3" />
               <input
                 className="input-base !py-2 !pl-9"
@@ -722,7 +722,7 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
             </div>
             <SelectWrap>
               <select
-                className="select-base !w-44 !py-2"
+                className="select-base !w-40 !py-2"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as InstanceSort)}
               >
@@ -768,7 +768,7 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
               {t("instances.nothingFound")}
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-4">
               {visible.map((inst) => (
                 <InstanceCard
                   key={inst.id}

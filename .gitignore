@@ -38,3 +38,8 @@ src-tauri/gen/schemas
 # workflow added via GitHub web UI (token lacks workflow scope)
 .github/workflows/
 _patch_release.ps1
+
+# Local design prototypes / scratch screenshots — not part of the app
+mockups/
+scripts/_*.ps1
+shot_*.png

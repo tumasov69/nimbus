@@ -38,8 +38,8 @@ export function Sidebar({
         : route.page;
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col gap-1 p-4">
-      <div className="mb-5 flex items-center gap-2.5 px-2 pt-1">
+    <aside className="flex w-56 shrink-0 flex-col gap-0.5 p-3">
+      <div className="mb-3 flex items-center gap-2.5 px-2 pt-1">
         <img src={logo} alt="Nimbus" className="size-9 rounded-lg shadow-sm" />
         <div>
           <div className="text-base font-bold tracking-tight leading-none text-hero">
@@ -56,7 +56,7 @@ export function Sidebar({
           <button
             key={page}
             onClick={() => navigate({ page } as Route)}
-            className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all cursor-pointer ${
+            className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all cursor-pointer ${
               currentPage === page
                 ? "tab-active"
                 : "text-t3 hover:bg-accent-soft hover:text-t1"

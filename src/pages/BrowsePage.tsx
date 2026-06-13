@@ -1,4 +1,4 @@
-import { Check, Download, Package, Search } from "lucide-react";
+import { Check, Download, Languages, Package, Search } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
@@ -234,6 +234,36 @@ export function BrowsePage({
   const [searchFailed, setSearchFailed] = useState(false);
   const [installing, setInstalling] = useState<Set<string>>(new Set());
   const [installedProjects, setInstalledProjects] = useState<Set<string>>(new Set());
+  const [translate, setTranslate] = useState(
+    () => localStorage.getItem("nimbus.translate") === "1",
+  );
+  const [descTr, setDescTr] = useState<Record<string, string>>({});
+  const lang = i18nLang.split("-")[0];
+
+  // When translation is on, translate the visible descriptions (cached backend).
+  useEffect(() => {
+    if (!translate || lang === "en" || hits.length === 0) return;
+    const todo = hits.filter((h) => h.description && !descTr[h.project_id]);
+    if (todo.length === 0) return;
+    let cancelled = false;
+    api
+      .translateTexts(
+        todo.map((h) => h.description),
+        lang,
+      )
+      .then((res) => {
+        if (cancelled) return;
+        setDescTr((prev) => {
+          const next = { ...prev };
+          todo.forEach((h, i) => (next[h.project_id] = res[i] ?? h.description));
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [translate, hits, lang, descTr]);
   const [pickFor, setPickFor] = useState<SearchHit | null>(null);
   const [packPick, setPackPick] = useState<{
     hit: SearchHit;
@@ -338,7 +368,11 @@ export function BrowsePage({
         }
       }
     },
-    [query, type, mcFilter, sort, contextInstance, selectedCats, loaderFilter, toast],
+    // Depend on the loader primitive, not the contextInstance object — the
+    // object identity changes on every refreshInstances() and would otherwise
+    // refetch the results the user is already looking at.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [query, type, mcFilter, sort, contextInstance?.loader, selectedCats, loaderFilter, toast],
   );
 
   useEffect(() => {
@@ -465,10 +499,10 @@ export function BrowsePage({
 
   return (
     <div className="animate-fade-up flex h-full flex-col">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("browse.title")}</h1>
-          <p className="mt-1 text-sm text-t3">
+          <h1 className="text-xl font-bold tracking-tight">{t("browse.title")}</h1>
+          <p className="mt-0.5 text-xs text-t3">
             {contextInstance
               ? t("browse.installTo", {
                   name: contextInstance.name,
@@ -487,7 +521,7 @@ export function BrowsePage({
         )}
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="flex gap-1">
           {TYPE_TABS.map((tabItem) => (
             <button
@@ -505,8 +539,8 @@ export function BrowsePage({
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2">
-        <div className="relative flex-1">
+      <div className="mb-4 flex flex-wrap gap-2">
+        <div className="relative min-w-44 flex-1">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-t3" />
           <input
             className="input-base !pl-10"
@@ -517,7 +551,7 @@ export function BrowsePage({
         </div>
         <SelectWrap>
           <select
-            className="select-base !w-44"
+            className="select-base !w-40"
             value={mcFilter}
             disabled={!!contextInstance}
             onChange={(e) => setMcFilter(e.target.value)}
@@ -532,7 +566,7 @@ export function BrowsePage({
         </SelectWrap>
         <SelectWrap>
           <select
-            className="select-base !w-48"
+            className="select-base !w-44"
             value={sort}
             onChange={(e) => setSort(e.target.value)}
           >
@@ -543,6 +577,23 @@ export function BrowsePage({
             ))}
           </select>
         </SelectWrap>
+        {lang !== "en" && (
+          <button
+            title={t("browse.translateHint")}
+            onClick={() => {
+              const next = !translate;
+              setTranslate(next);
+              localStorage.setItem("nimbus.translate", next ? "1" : "0");
+            }}
+            className={`flex size-10 shrink-0 items-center justify-center rounded-lg border transition-all cursor-pointer ${
+              translate
+                ? "border-accent bg-accent text-accent-fg"
+                : "border-stroke-strong bg-card text-t3 hover:text-t1"
+            }`}
+          >
+            <Languages className="size-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -621,7 +672,7 @@ export function BrowsePage({
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {loading ? (
-          <div className="flex flex-col gap-2.5 pb-4">
+          <div className="flex flex-col gap-2 pb-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="card flex items-center gap-4 p-4">
                 <Skeleton className="size-12 shrink-0 rounded-xl" />
@@ -644,7 +695,7 @@ export function BrowsePage({
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5 pb-4">
+          <div className="flex flex-col gap-2 pb-4">
             {hits.map((hit) => (
               <div
                 key={hit.project_id}
@@ -656,7 +707,7 @@ export function BrowsePage({
                     instanceId,
                   })
                 }
-                className="card flex cursor-pointer items-center gap-4 p-4 transition-all hover:-translate-y-0.5 hover:bg-card-hover"
+                className="card flex cursor-pointer items-center gap-3 p-3 transition-all hover:bg-card-hover"
               >
                 {hit.icon_url ? (
                   <img
@@ -664,13 +715,13 @@ export function BrowsePage({
                     alt=""
                     loading="lazy"
                     decoding="async"
-                    width={56}
-                    height={56}
-                    className="size-14 shrink-0 rounded-2xl object-cover bg-bg-soft shadow-sm"
+                    width={48}
+                    height={48}
+                    className="size-12 shrink-0 rounded-xl object-cover bg-bg-soft"
                   />
                 ) : (
-                  <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-bg-soft text-t3">
-                    <Package className="size-7" />
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-bg-soft text-t3">
+                    <Package className="size-6" />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
@@ -681,7 +732,7 @@ export function BrowsePage({
                     <span className="shrink-0 text-xs text-t3">{hit.author}</span>
                   </div>
                   <div className="mt-0.5 line-clamp-1 text-sm text-t2">
-                    {hit.description}
+                    {(translate && descTr[hit.project_id]) || hit.description}
                   </div>
                   <div className="mt-1 flex items-center gap-3 text-xs text-t3">
                     <span className="inline-flex items-center gap-1">

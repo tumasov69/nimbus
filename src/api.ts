@@ -100,6 +100,20 @@ export const setSkin = (
 export const readImagePreview = (path: string) =>
   invoke<string>("read_image_preview", { path });
 
+export interface PlayerSkin {
+  uuid: string;
+  name: string;
+  skinUrl: string;
+  slim: boolean;
+}
+export const getPlayerSkin = (username: string) =>
+  invoke<PlayerSkin>("get_player_skin", { username });
+export const setSkinFromUrl = (
+  accountId: string,
+  url: string,
+  variant: "classic" | "slim",
+) => invoke<void>("set_skin_from_url", { accountId, url, variant });
+
 // --- modrinth ---
 export const modrinthSearch = (params: {
   query: string;
@@ -144,6 +158,9 @@ export const modrinthInstallModpack = (projectId: string, versionId: string) =>
 
 export const modrinthGetProject = (id: string) =>
   invoke<Record<string, unknown>>("modrinth_get_project", { id });
+
+export const translateTexts = (texts: string[], target: string) =>
+  invoke<string[]>("translate_texts", { texts, target });
 
 export const importMrpack = (path: string) =>
   invoke<Instance>("import_mrpack", { path });

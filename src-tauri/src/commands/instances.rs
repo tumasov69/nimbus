@@ -215,6 +215,11 @@ pub async fn delete_instance(state: State<'_, AppState>, id: String) -> CmdResul
     if state.children.lock().await.contains_key(&id) {
         return Err("Сначала остановите игру".into());
     }
+    // Reject deletion while an install/repair is writing into the folder —
+    // otherwise the task keeps writing into (and re-creating) a removed dir.
+    if state.busy.lock().await.contains(&id) {
+        return Err("Дождитесь завершения операции".into());
+    }
     {
         let mut instances = state.instances.lock().await;
         instances.retain(|i| i.id != id);

@@ -168,44 +168,68 @@ export function Dropdown({
   items: MenuItem[];
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // The menu renders in a portal so it can never be clipped by an ancestor's
+  // overflow:hidden (e.g. the instance card's cover banner).
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) {
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+      setOpen(true);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
   return (
-    <div className="relative" ref={ref} onClick={(e) => e.stopPropagation()}>
-      <div onClick={() => setOpen((v) => !v)}>{trigger}</div>
-      {open && (
-        <div
-          className="card popover absolute right-0 top-full z-30 mt-1 min-w-44 overflow-hidden !rounded-xl p-1 animate-modal-in"
-          style={{ boxShadow: "var(--shadow-lg)" }}
-        >
-          {items.map((item, i) => (
-            <button
-              key={i}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer ${
-                item.danger
-                  ? "text-danger hover:bg-danger-soft"
-                  : "text-t2 hover:bg-accent-soft hover:text-t1"
-              }`}
-              onClick={() => {
-                setOpen(false);
-                item.onClick();
-              }}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
+    <div ref={triggerRef} onClick={(e) => e.stopPropagation()}>
+      <div onClick={toggle}>{trigger}</div>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="card popover fixed z-[70] min-w-44 overflow-hidden !rounded-xl p-1 animate-modal-in"
+            style={{ top: pos.top, right: pos.right, boxShadow: "var(--shadow-lg)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {items.map((item, i) => (
+              <button
+                key={i}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer ${
+                  item.danger
+                    ? "text-danger hover:bg-danger-soft"
+                    : "text-t2 hover:bg-accent-soft hover:text-t1"
+                }`}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick();
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

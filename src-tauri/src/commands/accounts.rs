@@ -64,6 +64,140 @@ pub(crate) async fn ensure_ms_token(
     Ok(refreshed.access_token)
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerSkin {
+    pub uuid: String,
+    pub name: String,
+    pub skin_url: String,
+    pub slim: bool,
+}
+
+/// Resolves a Minecraft username to its current skin texture URL (and model
+/// variant), via the public Mojang APIs. Used for skin previews & gallery.
+#[tauri::command]
+pub async fn get_player_skin(
+    state: State<'_, AppState>,
+    username: String,
+) -> CmdResult<PlayerSkin> {
+    let username = username.trim();
+    if username.is_empty() {
+        return Err("Введите ник".into());
+    }
+    // username -> uuid
+    let resp = state
+        .http
+        .get(format!(
+            "https://api.mojang.com/users/profiles/minecraft/{username}"
+        ))
+        .send()
+        .await
+        .map_err(err_to_string)?;
+    // Mojang answers 204/404 for an unknown name; anything else non-2xx is a
+    // service/rate-limit error and must not be reported as "player not found".
+    let status = resp.status().as_u16();
+    if status == 204 || status == 404 {
+        return Err("Игрок с таким ником не найден".into());
+    }
+    if !(200..300).contains(&status) {
+        return Err("Сервис Mojang недоступен, попробуйте позже".into());
+    }
+    let profile: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|_| "Игрок с таким ником не найден".to_string())?;
+    let uuid = profile["id"]
+        .as_str()
+        .ok_or("Игрок с таким ником не найден")?
+        .to_string();
+    let name = profile["name"].as_str().unwrap_or(username).to_string();
+
+    // uuid -> textures (base64 in properties)
+    let session: serde_json::Value = state
+        .http
+        .get(format!(
+            "https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"
+        ))
+        .send()
+        .await
+        .map_err(err_to_string)?
+        .json()
+        .await
+        .map_err(err_to_string)?;
+    let b64 = session["properties"]
+        .as_array()
+        .and_then(|p| p.iter().find(|x| x["name"].as_str() == Some("textures")))
+        .and_then(|x| x["value"].as_str())
+        .ok_or("Не удалось получить текстуры")?;
+
+    use base64::Engine;
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(err_to_string)?;
+    let textures: serde_json::Value =
+        serde_json::from_slice(&decoded).map_err(err_to_string)?;
+    let skin = &textures["textures"]["SKIN"];
+    let skin_url = skin["url"]
+        .as_str()
+        .ok_or("У игрока нет скина")?
+        .to_string();
+    let slim = skin["metadata"]["model"].as_str() == Some("slim");
+
+    Ok(PlayerSkin {
+        uuid,
+        name,
+        skin_url,
+        slim,
+    })
+}
+
+/// Applies a skin to a Microsoft account from a texture URL (e.g. another
+/// player's skin). Downloads the PNG and uploads it via the Mojang API.
+#[tauri::command]
+pub async fn set_skin_from_url(
+    state: State<'_, AppState>,
+    account_id: String,
+    url: String,
+    variant: String,
+) -> CmdResult<()> {
+    // Only fetch from Mojang's texture CDN — no arbitrary URLs.
+    if !url.starts_with("https://textures.minecraft.net/") {
+        return Err("Недопустимый источник скина".into());
+    }
+    let token = ensure_ms_token(&state, &account_id).await?;
+    let bytes = state
+        .http
+        .get(&url)
+        .send()
+        .await
+        .map_err(err_to_string)?
+        .bytes()
+        .await
+        .map_err(err_to_string)?;
+
+    let variant = if variant == "slim" { "slim" } else { "classic" };
+    let part = reqwest::multipart::Part::bytes(bytes.to_vec())
+        .file_name("skin.png")
+        .mime_str("image/png")
+        .map_err(err_to_string)?;
+    let form = reqwest::multipart::Form::new()
+        .text("variant", variant)
+        .part("file", part);
+
+    let resp = state
+        .http
+        .post("https://api.minecraftservices.com/minecraft/profile/skins")
+        .bearer_auth(token)
+        .multipart(form)
+        .send()
+        .await
+        .map_err(err_to_string)?;
+    if !resp.status().is_success() {
+        return Err(format!("Mojang API: HTTP {}", resp.status()));
+    }
+    Ok(())
+}
+
 /// Reads a small image file as a data URL for previewing (skin files).
 #[tauri::command]
 pub async fn read_image_preview(path: String) -> CmdResult<String> {

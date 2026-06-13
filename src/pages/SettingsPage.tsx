@@ -32,6 +32,9 @@ export function SettingsPage() {
     if (settings && !local) setLocal(settings);
   }, [settings, local]);
 
+  // Cancel a pending debounced save on unmount.
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
+
   if (!local) return null;
 
   const update = (patch: Partial<Settings>) => {
@@ -76,7 +79,7 @@ export function SettingsPage() {
 
   return (
     <div className="animate-fade-up max-w-2xl pb-6">
-      <h1 className="text-2xl font-bold tracking-tight">{t("settings.title")}</h1>
+      <h1 className="text-xl font-bold tracking-tight">{t("settings.title")}</h1>
       <p className="mt-1 text-sm text-t3">{t("settings.subtitle")}</p>
 
       {/* Appearance */}
