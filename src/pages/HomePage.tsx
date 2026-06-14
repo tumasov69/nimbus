@@ -1,4 +1,13 @@
-import { Box, Compass, Download, Play, Rocket, Square } from "lucide-react";
+import {
+  ArrowDownToLine,
+  Box,
+  Compass,
+  Download,
+  Package,
+  Play,
+  Rocket,
+  Square,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
@@ -9,6 +18,7 @@ import {
   Spinner,
   formatDownloads,
   formatRelativeDate,
+  instanceIconSrc,
 } from "../components/ui";
 import type { Route } from "../routes";
 import { errorText, useStore } from "../store";
@@ -16,6 +26,12 @@ import type { Instance, McVersion, SearchHit } from "../types";
 
 // Cache popular modpacks for the session so Home loads instantly on revisits.
 let popularCache: SearchHit[] | null = null;
+
+interface UpdateEntry {
+  inst: Instance;
+  packVersion?: string;
+  modCount: number;
+}
 
 export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   const { t } = useTranslation();
@@ -33,8 +49,45 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   const [nick, setNick] = useState("");
   const [launching, setLaunching] = useState(false);
   const [popular, setPopular] = useState<SearchHit[]>(popularCache ?? []);
+  const [updates, setUpdates] = useState<UpdateEntry[]>([]);
 
   const activeAccount = accounts.accounts.find((a) => a.id === accounts.active);
+
+  // "What's new": instances with an available modpack and/or mod updates.
+  // Runs in the background (enrichment is cached), re-checks when the set of
+  // instances changes — not on every refresh.
+  const instanceIds = instances.map((i) => i.id).join(",");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const found = await Promise.all(
+        instances.map(async (inst): Promise<UpdateEntry | null> => {
+          let packVersion: string | undefined;
+          if (inst.modpack) {
+            try {
+              const u = await api.checkModpackUpdate(inst.id);
+              if (u) packVersion = u.versionNumber;
+            } catch {
+              /* ignore */
+            }
+          }
+          let modCount = 0;
+          try {
+            const mods = await api.modrinthEnrichMods(inst.id);
+            modCount = mods.filter((m) => m.updateVersionId).length;
+          } catch {
+            /* ignore */
+          }
+          return packVersion || modCount > 0 ? { inst, packVersion, modCount } : null;
+        }),
+      );
+      if (!cancelled) setUpdates(found.filter((e): e is UpdateEntry => e !== null));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceIds]);
 
   // Discovery: most-downloaded modpacks from Modrinth (cached for the session).
   useEffect(() => {
@@ -245,6 +298,52 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
             onPlay={() => playInstance(lastPlayed)}
             onStop={() => api.killInstance(lastPlayed.id).catch(() => {})}
           />
+        </div>
+      )}
+
+      {/* What's new: available modpack & mod updates */}
+      {updates.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-t3">
+            {t("home.updates")}
+          </h2>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5">
+            {updates.map(({ inst, packVersion, modCount }) => {
+              const src = instanceIconSrc(inst);
+              return (
+                <button
+                  key={inst.id}
+                  onClick={() => navigate({ page: "instance", id: inst.id })}
+                  className="card flex items-center gap-3 p-3.5 text-left transition-all hover:bg-card-hover hover:-translate-y-0.5 cursor-pointer"
+                >
+                  {src ? (
+                    <img src={src} alt="" className="size-10 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
+                      <Box className="size-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-t1">{inst.name}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {packVersion && (
+                        <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[11px] font-medium text-accent-text">
+                          {t("home.modpackUpdateTo", { v: packVersion })}
+                        </span>
+                      )}
+                      {modCount > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded bg-bg-soft px-1.5 py-0.5 text-[11px] text-t2">
+                          <Package className="size-3" />
+                          {t("home.modUpdates", { n: modCount })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ArrowDownToLine className="size-4 shrink-0 text-accent-text" />
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

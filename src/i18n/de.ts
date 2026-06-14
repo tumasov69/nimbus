@@ -29,6 +29,9 @@ export const de: Dict = {
     signIn: "Anmelden",
   },
   home: {
+    updates: "Updates",
+    modpackUpdateTo: "Modpack v{{v}}",
+    modUpdates: "{{n}} Mod-Updates",
     title: "Willkommen zurück",
     quickPlay: "Schnellstart",
     quickPlayDesc: "Version wählen und direkt ins Spiel",
@@ -85,6 +88,14 @@ export const de: Dict = {
     lastPlayed: "Gespielt",
   },
   instance: {
+    playtime: "Spielzeit",
+    playtimeHM: "{{h}} Std. {{m}} Min.",
+    playtimeM: "{{m}} Min.",
+    logSearch: "Logs durchsuchen…",
+    logAll: "Alle",
+    logWarnings: "Warnungen",
+    logErrors: "Fehler",
+    logNoMatch: "Keine Treffer",
     all: "Alle Instanzen",
     notFound: "Instanz nicht gefunden",
     mods: "Mods",
@@ -136,6 +147,7 @@ export const de: Dict = {
     useGlobal: "Globale Einstellungen verwenden",
   },
   browse: {
+    datapacks: "Datapacks",
     title: "Entdecken",
     subtitle: "Modrinth-Katalog",
     installTo: "Installation in „{{name}}“ · {{mc}}",
@@ -182,12 +194,19 @@ export const de: Dict = {
     followers: "{{n}} Follower",
     openModrinth: "Auf Modrinth öffnen",
   },
+  palette: {
+    placeholder: "Instanzen, Seiten, Konten suchen…",
+    pages: "Seiten",
+    search: "Suchen…",
+  },
   worlds: {
     empty: "Noch keine Welten",
     backup: "Backup",
     backupDone: "Welt gesichert",
   },
   servers: {
+    offline: "Offline",
+    join: "Server beitreten",
     add: "Server hinzufügen",
     empty: "Noch keine Server",
     name: "Name",
@@ -232,6 +251,9 @@ export const de: Dict = {
     skinFind: "Suchen",
   },
   settings: {
+    notifications: "Benachrichtigungen",
+    notificationsDesc:
+      "Benachrichtigen, wenn lange Vorgänge im Hintergrund abgeschlossen werden",
     title: "Einstellungen",
     subtitle: "Gelten für alle Instanzen",
     memory: "Arbeitsspeicher",

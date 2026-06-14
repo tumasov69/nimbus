@@ -29,6 +29,9 @@ export const uk: Dict = {
     signIn: "Увійти в акаунт",
   },
   home: {
+    updates: "Оновлення",
+    modpackUpdateTo: "Модпак v{{v}}",
+    modUpdates: "оновлень модів: {{n}}",
     title: "З поверненням",
     quickPlay: "Швидкий запуск",
     quickPlayDesc: "Оберіть версію та одразу в гру",
@@ -85,6 +88,14 @@ export const uk: Dict = {
     lastPlayed: "Гра",
   },
   instance: {
+    playtime: "Час у грі",
+    playtimeHM: "{{h}} год {{m}} хв",
+    playtimeM: "{{m}} хв",
+    logSearch: "Пошук у логах…",
+    logAll: "Усі",
+    logWarnings: "Попередження",
+    logErrors: "Помилки",
+    logNoMatch: "Немає збігів",
     all: "Усі збірки",
     notFound: "Збірку не знайдено",
     mods: "Моди",
@@ -136,6 +147,7 @@ export const uk: Dict = {
     useGlobal: "Використовувати загальні налаштування",
   },
   browse: {
+    datapacks: "Дата-паки",
     title: "Огляд",
     subtitle: "Каталог Modrinth",
     installTo: "Встановлення у збірку «{{name}}» · {{mc}}",
@@ -182,12 +194,19 @@ export const uk: Dict = {
     followers: "{{n}} підписників",
     openModrinth: "Відкрити на Modrinth",
   },
+  palette: {
+    placeholder: "Пошук збірок, сторінок, акаунтів…",
+    pages: "Сторінки",
+    search: "Пошук…",
+  },
   worlds: {
     empty: "Світів поки немає",
     backup: "Резервна копія",
     backupDone: "Резервну копію світу створено",
   },
   servers: {
+    offline: "Не в мережі",
+    join: "Зайти на сервер",
     add: "Додати сервер",
     empty: "Серверів поки немає",
     name: "Назва",
@@ -232,6 +251,9 @@ export const uk: Dict = {
     skinFind: "Знайти",
   },
   settings: {
+    notifications: "Сповіщення",
+    notificationsDesc:
+      "Сповіщати про завершення тривалих операцій, коли лаунчер згорнуто",
     title: "Налаштування",
     subtitle: "Застосовуються до всіх збірок",
     memory: "Оперативна пам'ять",

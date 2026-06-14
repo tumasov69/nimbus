@@ -1,14 +1,17 @@
-import { Plus, Server, Trash2 } from "lucide-react";
+import { Play, Plus, Server, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import { errorText, useStore } from "../store";
 import { Field, Modal, Spinner } from "./ui";
 
+type Status = api.ServerStatus | "loading" | "error";
+
 export function ServersTab({ id }: { id: string }) {
   const { t } = useTranslation();
   const { toast } = useStore();
   const [servers, setServers] = useState<api.ServerEntry[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
@@ -29,6 +32,29 @@ export function ServersTab({ id }: { id: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Ping each server (parallel) whenever the list changes.
+  useEffect(() => {
+    let cancelled = false;
+    for (const s of servers) {
+      setStatuses((p) => ({ ...p, [s.ip]: "loading" }));
+      api
+        .pingServer(s.ip)
+        .then((st) => !cancelled && setStatuses((p) => ({ ...p, [s.ip]: st })))
+        .catch(() => !cancelled && setStatuses((p) => ({ ...p, [s.ip]: "error" })));
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [servers]);
+
+  const join = async (server: api.ServerEntry) => {
+    try {
+      await api.launchInstance(id, server.ip);
+    } catch (e) {
+      toast("error", errorText(e));
+    }
+  };
 
   const add = async () => {
     setSaving(true);
@@ -71,32 +97,63 @@ export function ServersTab({ id }: { id: string }) {
         </div>
       ) : (
         <div className="card divide-y divide-stroke">
-          {servers.map((server, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3">
-              {server.icon ? (
-                <img
-                  src={`data:image/png;base64,${server.icon}`}
-                  alt=""
-                  className="size-9 shrink-0 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-                  <Server className="size-4.5" />
+          {servers.map((server, i) => {
+            const st = statuses[server.ip];
+            const online = st && st !== "loading" && st !== "error";
+            const favicon =
+              (online && st.favicon) ||
+              (server.icon ? `data:image/png;base64,${server.icon}` : null);
+            return (
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
+                {favicon ? (
+                  <img
+                    src={favicon}
+                    alt=""
+                    className="size-9 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
+                    <Server className="size-4.5" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-t1">
+                    {server.name}
+                  </div>
+                  <div className="flex items-center gap-1.5 truncate text-xs text-t3">
+                    <span className="truncate">{server.ip}</span>
+                    {st === "loading" ? (
+                      <Spinner className="size-3 shrink-0" />
+                    ) : online ? (
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 font-medium text-success">
+                          <span className="size-1.5 rounded-full bg-success" />
+                          {st.online}/{st.max}
+                        </span>
+                        <span>· {st.latencyMs} ms</span>
+                      </span>
+                    ) : (
+                      <span className="shrink-0">· {t("servers.offline")}</span>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-t1">{server.name}</div>
-                <div className="truncate text-xs text-t3">{server.ip}</div>
+                <button
+                  className="btn-ghost !p-2"
+                  title={t("servers.join")}
+                  onClick={() => join(server)}
+                >
+                  <Play className="size-4" />
+                </button>
+                <button
+                  className="btn-ghost !p-2 hover:!bg-danger-soft hover:!text-danger"
+                  title={t("common.delete")}
+                  onClick={() => remove(i)}
+                >
+                  <Trash2 className="size-4" />
+                </button>
               </div>
-              <button
-                className="btn-ghost !p-2 hover:!bg-danger-soft hover:!text-danger"
-                title={t("common.delete")}
-                onClick={() => remove(i)}
-              >
-                <Trash2 className="size-4" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

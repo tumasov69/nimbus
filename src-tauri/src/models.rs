@@ -63,6 +63,9 @@ pub struct Instance {
     pub created_at: String,
     #[serde(default)]
     pub last_played: Option<String>,
+    /// Cumulative time spent in-game across all sessions, in seconds.
+    #[serde(default)]
+    pub total_playtime_secs: u64,
     #[serde(default)]
     pub modpack: Option<ModpackRef>,
     #[serde(default)]
@@ -102,6 +105,8 @@ pub struct Settings {
     pub download_concurrency: usize,
     /// Show "playing Minecraft" in Discord.
     pub discord_rpc: bool,
+    /// Native OS notifications when long operations finish in the background.
+    pub notifications_enabled: bool,
 }
 
 impl Default for Settings {
@@ -117,6 +122,7 @@ impl Default for Settings {
             theme: "system".into(),
             download_concurrency: 8,
             discord_rpc: true,
+            notifications_enabled: true,
         }
     }
 }

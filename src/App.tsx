@@ -3,6 +3,7 @@ import { ArrowDownToLine } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import logo from "./assets/logo.png";
+import { CommandPalette } from "./components/CommandPalette";
 import { Onboarding } from "./components/Onboarding";
 import { Sidebar } from "./components/Sidebar";
 import { Spinner, Toasts } from "./components/ui";
@@ -71,6 +72,7 @@ function Shell() {
   const [route, setRoute] = useState<Route>({ page: "home" });
   const { instances, accounts, settings, refreshInstances, toast } = useStore();
   const [onboarded, setOnboarded] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const onboardingSeen = useRef(false);
 
   // First run: no accounts and no instances → show the wizard once ever
@@ -112,11 +114,34 @@ function Shell() {
     };
   }, [refreshInstances, toast]);
 
+  // Ctrl/⌘+K toggles the command palette. Match on e.code (physical key) so it
+  // works regardless of keyboard layout — e.key would be "л" on a Cyrillic layout.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyK") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="flex h-full">
       {showOnboarding && <Onboarding onDone={completeOnboarding} />}
+      {paletteOpen && (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          navigate={setRoute}
+        />
+      )}
       <ForcedUpdateOverlay />
-      <Sidebar route={route} navigate={setRoute} />
+      <Sidebar
+        route={route}
+        navigate={setRoute}
+        onOpenPalette={() => setPaletteOpen(true)}
+      />
       <UpdatePill />
       <main className="min-w-0 flex-1 overflow-y-auto px-5 py-4 pl-1">
         <div className="h-full">

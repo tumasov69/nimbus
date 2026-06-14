@@ -292,3 +292,12 @@ export function formatRelativeDate(iso?: string | null): string {
   if (days < 30) return i18n.t("common.daysAgo", { n: days });
   return date.toLocaleDateString(i18n.language);
 }
+
+/** Formats cumulative playtime seconds as "3 ч 12 мин" / "12 мин". */
+export function formatPlaytime(secs: number): string {
+  const totalMin = Math.floor(secs / 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h > 0) return i18n.t("instance.playtimeHM", { h, m });
+  return i18n.t("instance.playtimeM", { m });
+}

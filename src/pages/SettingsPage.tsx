@@ -272,6 +272,19 @@ export function SettingsPage() {
         />
       </div>
 
+      <div className="card mt-4 flex items-center justify-between p-5">
+        <div>
+          <div className="text-sm font-medium text-t1">
+            {t("settings.notifications")}
+          </div>
+          <div className="text-xs text-t3">{t("settings.notificationsDesc")}</div>
+        </div>
+        <Toggle
+          checked={local.notificationsEnabled}
+          onChange={(v) => update({ notificationsEnabled: v })}
+        />
+      </div>
+
       <UpdatesCard />
 
       {/* Import mrpack */}

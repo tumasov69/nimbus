@@ -34,6 +34,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let data_dir = app
                 .path()
@@ -92,6 +93,7 @@ pub fn run() {
             commands::launch::launch_instance,
             commands::launch::kill_instance,
             commands::launch::get_running_instances,
+            commands::server_ping::ping_server,
             commands::accounts::get_accounts,
             commands::accounts::add_offline_account,
             commands::accounts::remove_account,

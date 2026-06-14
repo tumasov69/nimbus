@@ -3,6 +3,7 @@ pub mod content;
 pub mod instances;
 pub mod launch;
 pub mod modrinth;
+pub mod server_ping;
 pub mod settings;
 pub mod translate;
 pub mod versions;

@@ -25,6 +25,7 @@ import {
   ProgressBar,
   SelectWrap,
   Spinner,
+  formatPlaytime,
   formatRelativeDate,
   instanceIconSrc,
 } from "../components/ui";
@@ -207,6 +208,9 @@ function InstanceCard({
             <>
               <Clock className="size-3.5" />
               {formatRelativeDate(instance.lastPlayed)}
+              {(instance.totalPlaytimeSecs ?? 0) > 0 && (
+                <span> · {formatPlaytime(instance.totalPlaytimeSecs ?? 0)}</span>
+              )}
             </>
           )}
         </div>

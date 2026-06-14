@@ -18,6 +18,8 @@ pub struct AppState {
     pub instances: Mutex<Vec<Instance>>,
     pub accounts: Mutex<AccountStore>,
     pub children: Mutex<HashMap<String, Child>>,
+    /// Wall-clock start of each running session, used to accrue playtime.
+    pub session_start: Mutex<HashMap<String, std::time::Instant>>,
     pub busy: Mutex<HashSet<String>>,
     pub mc_manifest_cache: Mutex<Option<serde_json::Value>>,
     pub modrinth_tags: Mutex<Option<serde_json::Value>>,
@@ -55,6 +57,7 @@ impl AppState {
             instances: Mutex::new(instances),
             accounts: Mutex::new(accounts),
             children: Mutex::new(HashMap::new()),
+            session_start: Mutex::new(HashMap::new()),
             busy: Mutex::new(HashSet::new()),
             mc_manifest_cache: Mutex::new(None),
             modrinth_tags: Mutex::new(None),

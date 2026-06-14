@@ -12,6 +12,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import * as api from "./api";
 import i18n, { resolveLanguage } from "./i18n";
+import { setNotificationsEnabled } from "./notify";
 import type {
   AccountStore,
   InstallProgress,
@@ -124,6 +125,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [settings?.theme]);
+
+  // Keep the notifications helper in sync with the setting.
+  useEffect(() => {
+    setNotificationsEnabled(settings?.notificationsEnabled ?? true);
+  }, [settings?.notificationsEnabled]);
 
   // Mark the document when a native backdrop (Mica/Acrylic) is active.
   useEffect(() => {

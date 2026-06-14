@@ -3,6 +3,7 @@ import {
   ArrowDownToLine,
   ArrowLeft,
   Box,
+  Clock,
   Copy,
   CopyPlus,
   FolderOpen,
@@ -12,6 +13,7 @@ import {
   Play,
   Plus,
   Puzzle,
+  Search,
   Square,
   Trash2,
   Wrench,
@@ -28,14 +30,46 @@ import {
   Spinner,
   Toggle,
   formatBytes,
+  formatPlaytime,
   instanceIconSrc,
 } from "../components/ui";
+import { notify } from "../notify";
 import type { Route } from "../routes";
 import { errorText, useStore } from "../store";
 import type { InstanceOverrides, ModFile } from "../types";
 import { DeleteInstanceModal, RenameInstanceModal } from "./InstancesPage";
 
 type Tab = "mods" | "worlds" | "servers" | "logs" | "settings";
+
+type LogLevel = "error" | "warn" | "info";
+
+/** Classifies a Minecraft log line by severity for colouring/filtering. */
+function logLevelOf(line: string): LogLevel {
+  if (/\/(ERROR|FATAL)\]|\bERROR\b|\bFATAL\b|Exception/.test(line)) return "error";
+  if (/\/WARN\]|\bWARN(?:ING)?\b/.test(line)) return "warn";
+  return "info";
+}
+
+/** Wraps case-insensitive matches of `q` (already lowercased) in <mark>. */
+function highlightLog(line: string, q: string): ReactNode {
+  if (!q) return line;
+  const lower = line.toLowerCase();
+  const out: ReactNode[] = [];
+  let from = 0;
+  let idx = lower.indexOf(q, from);
+  while (idx !== -1) {
+    if (idx > from) out.push(line.slice(from, idx));
+    out.push(
+      <mark key={idx} className="rounded-sm bg-amber-400/40 text-inherit">
+        {line.slice(idx, idx + q.length)}
+      </mark>,
+    );
+    from = idx + q.length;
+    idx = lower.indexOf(q, from);
+  }
+  if (from < line.length) out.push(line.slice(from));
+  return out;
+}
 
 export function InstancePage({
   id,
@@ -60,6 +94,9 @@ export function InstancePage({
   const [showDelete, setShowDelete] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const enrichSeq = useRef(0);
+  const [logSearch, setLogSearch] = useState("");
+  const [logLevel, setLogLevel] = useState<"all" | "warn" | "error">("all");
+  const atBottomRef = useRef(true);
 
   const busy =
     status && ["preparing", "installing", "launching"].includes(status.state);
@@ -165,6 +202,7 @@ export function InstancePage({
     api.invalidateEnrich(id);
     setMods(await api.listMods(id));
     toast("success", t("instance.modsUpdated", { n: updated }));
+    notify("Nimbus", t("instance.modsUpdated", { n: updated }));
   };
 
   useEffect(() => {
@@ -191,6 +229,7 @@ export function InstancePage({
       await loadMods(true);
       setPackUpdate(null);
       toast("success", t("instance.packUpdated"));
+      notify("Nimbus", t("instance.packUpdated"));
     } catch (e) {
       toast("error", errorText(e));
     } finally {
@@ -248,8 +287,15 @@ export function InstancePage({
     }
   };
 
+  // Reset to "follow tail" each time the logs tab is opened.
   useEffect(() => {
-    if (tab === "logs" && logRef.current) {
+    if (tab === "logs") atBottomRef.current = true;
+  }, [tab]);
+
+  // Auto-scroll to the newest line only while the user is at the bottom, so
+  // scrolling up to read isn't yanked back down by incoming lines.
+  useEffect(() => {
+    if (tab === "logs" && logRef.current && atBottomRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [tab, logs, status?.state]);
@@ -340,6 +386,15 @@ export function InstancePage({
               {instance.modpack?.versionNumber && (
                 <span className="text-sm text-t3">
                   · {t("instance.modpackV", { v: instance.modpack.versionNumber })}
+                </span>
+              )}
+              {(instance.totalPlaytimeSecs ?? 0) > 0 && (
+                <span
+                  className="flex items-center gap-1 text-sm text-t3"
+                  title={t("instance.playtime")}
+                >
+                  <Clock className="size-3.5" />
+                  {formatPlaytime(instance.totalPlaytimeSecs ?? 0)}
                 </span>
               )}
             </div>
@@ -580,34 +635,102 @@ export function InstancePage({
         {tab === "worlds" && <WorldsTab id={id} />}
         {tab === "servers" && <ServersTab id={id} />}
 
-        {tab === "logs" && (
-          <div className="relative h-full">
-            {(logs[id] ?? []).length > 0 && (
-              <button
-                className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-300 backdrop-blur transition-all hover:bg-white/20 cursor-pointer"
-                onClick={() => {
-                  navigator.clipboard
-                    .writeText((logs[id] ?? []).join("\n"))
-                    .then(() => toast("success", t("instance.logsCopied")))
-                    .catch(() => {});
-                }}
-              >
-                <Copy className="size-3.5" /> {t("instance.copyLogs")}
-              </button>
-            )}
-            <div
-              ref={logRef}
-              className="h-full max-h-[calc(100vh-360px)] overflow-y-auto rounded-2xl border border-stroke p-4 font-mono text-xs leading-relaxed text-slate-300 select-text"
-              style={{ background: "var(--console-bg)" }}
-            >
-              {(logs[id] ?? []).length === 0 ? (
-                <span className="text-slate-500">{t("instance.logsEmpty")}</span>
-              ) : (
-                (logs[id] ?? []).map((line, i) => <div key={i}>{line}</div>)
-              )}
-            </div>
-          </div>
-        )}
+        {tab === "logs" &&
+          (() => {
+            const allLines = logs[id] ?? [];
+            const q = logSearch.trim().toLowerCase();
+            const visible = allLines
+              .map((line, i) => ({ i, line, level: logLevelOf(line) }))
+              .filter(({ line, level }) => {
+                if (logLevel === "error" && level !== "error") return false;
+                if (logLevel === "warn" && level === "info") return false;
+                if (q && !line.toLowerCase().includes(q)) return false;
+                return true;
+              });
+            return (
+              <div className="flex h-full flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-t3" />
+                    <input
+                      value={logSearch}
+                      onChange={(e) => setLogSearch(e.target.value)}
+                      placeholder={t("instance.logSearch")}
+                      className="input-base !py-2 pl-9"
+                    />
+                  </div>
+                  <div className="flex shrink-0 overflow-hidden rounded-lg border border-stroke-strong">
+                    {(
+                      [
+                        ["all", t("instance.logAll")],
+                        ["warn", t("instance.logWarnings")],
+                        ["error", t("instance.logErrors")],
+                      ] as ["all" | "warn" | "error", string][]
+                    ).map(([k, label]) => (
+                      <button
+                        key={k}
+                        onClick={() => setLogLevel(k)}
+                        className={`px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                          logLevel === k
+                            ? "bg-accent text-accent-fg"
+                            : "text-t3 hover:bg-accent-soft hover:text-t1"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {allLines.length > 0 && (
+                    <button
+                      className="btn-secondary shrink-0 !py-2"
+                      onClick={() => {
+                        navigator.clipboard
+                          .writeText(allLines.join("\n"))
+                          .then(() => toast("success", t("instance.logsCopied")))
+                          .catch(() => {});
+                      }}
+                    >
+                      <Copy className="size-3.5" /> {t("instance.copyLogs")}
+                    </button>
+                  )}
+                </div>
+                <div
+                  ref={logRef}
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    atBottomRef.current =
+                      el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+                  }}
+                  className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-stroke p-4 font-mono text-xs leading-relaxed text-slate-300 select-text"
+                  style={{
+                    background: "var(--console-bg)",
+                    maxHeight: "calc(100vh - 410px)",
+                  }}
+                >
+                  {allLines.length === 0 ? (
+                    <span className="text-slate-500">{t("instance.logsEmpty")}</span>
+                  ) : visible.length === 0 ? (
+                    <span className="text-slate-500">{t("instance.logNoMatch")}</span>
+                  ) : (
+                    visible.map(({ i, line, level }) => (
+                      <div
+                        key={i}
+                        className={
+                          level === "error"
+                            ? "text-rose-400"
+                            : level === "warn"
+                              ? "text-amber-300"
+                              : undefined
+                        }
+                      >
+                        {highlightLog(line, q)}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
         {tab === "settings" && (
           <div className="flex flex-col gap-4 pb-4">

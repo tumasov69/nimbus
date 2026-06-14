@@ -625,6 +625,7 @@ pub async fn modrinth_install_modpack(
         icon_path: None,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_played: None,
+        total_playtime_secs: 0,
         modpack: Some(ModpackRef {
             project_id,
             version_id: version_id.clone(),
@@ -673,6 +674,7 @@ pub async fn import_mrpack(
         icon_path: None,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_played: None,
+        total_playtime_secs: 0,
         modpack: None,
         overrides: None,
         group: None,

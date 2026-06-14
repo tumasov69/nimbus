@@ -16,6 +16,7 @@ import {
   formatDownloads,
 } from "../components/ui";
 import type { Route } from "../routes";
+import { notify } from "../notify";
 import { errorText, useStore } from "../store";
 import type {
   Instance,
@@ -210,6 +211,7 @@ export function BrowsePage({
     { type: "mod", label: t("browse.mods") },
     { type: "resourcepack", label: t("browse.resourcepacks") },
     { type: "shader", label: t("browse.shaders") },
+    { type: "datapack", label: t("browse.datapacks") },
   ];
 
   const SORTS: [string, string][] = [
@@ -281,8 +283,10 @@ export function BrowsePage({
   useEffect(() => {
     setSelectedCats([]);
     setLoaderFilter("");
+    // Modrinth has no datapack-specific category tags — datapacks reuse the mod
+    // category set (filtered via the generic `categories:` facet).
     api
-      .modrinthCategories(type)
+      .modrinthCategories(type === "datapack" ? "mod" : type)
       .then(setAllCategories)
       .catch(() => setAllCategories([]));
   }, [type]);
@@ -465,6 +469,7 @@ export function BrowsePage({
       await api.modrinthInstallModpack(hit.project_id, selected);
       await refreshInstances();
       toast("success", t("browse.packInstalled", { name: hit.title }));
+      notify("Nimbus", t("browse.packInstalled", { name: hit.title }));
     } catch (e) {
       await refreshInstances();
       toast("error", errorText(e));

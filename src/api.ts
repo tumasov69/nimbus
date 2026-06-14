@@ -61,7 +61,11 @@ export const deleteInstance = (id: string) =>
   invoke<void>("delete_instance", { id });
 export const openInstanceFolder = (id: string) =>
   invoke<void>("open_instance_folder", { id });
-export type ContentFolder = "mods" | "resourcepacks" | "shaderpacks";
+export type ContentFolder =
+  | "mods"
+  | "resourcepacks"
+  | "shaderpacks"
+  | "datapacks";
 export const listMods = (id: string, folder: ContentFolder = "mods") =>
   invoke<ModFile[]>("list_mods", { id, folder });
 export const toggleMod = (
@@ -77,8 +81,19 @@ export const deleteMod = (
 ) => invoke<void>("delete_mod", { id, fileName, folder });
 
 // --- launch ---
-export const launchInstance = (id: string) =>
-  invoke<void>("launch_instance", { id });
+export const launchInstance = (id: string, server?: string) =>
+  invoke<void>("launch_instance", { id, server: server ?? null });
+
+export interface ServerStatus {
+  online: number;
+  max: number;
+  version: string;
+  motd: string;
+  favicon?: string | null;
+  latencyMs: number;
+}
+export const pingServer = (addr: string) =>
+  invoke<ServerStatus>("ping_server", { addr });
 export const killInstance = (id: string) => invoke<void>("kill_instance", { id });
 export const getRunningInstances = () =>
   invoke<string[]>("get_running_instances");

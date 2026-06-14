@@ -17,6 +17,8 @@ export interface Instance {
   iconPath?: string | null;
   createdAt: string;
   lastPlayed?: string | null;
+  /** Cumulative in-game time across all sessions, in seconds. */
+  totalPlaytimeSecs?: number;
   modpack?: ModpackRef | null;
   overrides?: InstanceOverrides | null;
   group?: string | null;
@@ -35,6 +37,7 @@ export interface Settings {
   theme: "light" | "dark" | "oled" | "system";
   downloadConcurrency: number;
   discordRpc: boolean;
+  notificationsEnabled: boolean;
 }
 
 export interface InstanceOverrides {
@@ -102,7 +105,12 @@ export interface ModpackProgress {
 
 // --- Modrinth ---
 
-export type ProjectType = "modpack" | "mod" | "resourcepack" | "shader";
+export type ProjectType =
+  | "modpack"
+  | "mod"
+  | "resourcepack"
+  | "shader"
+  | "datapack";
 
 export interface SearchHit {
   project_id: string;

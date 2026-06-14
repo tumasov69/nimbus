@@ -29,6 +29,9 @@ export const ru: Dict = {
     signIn: "Войти в аккаунт",
   },
   home: {
+    updates: "Обновления",
+    modpackUpdateTo: "Модпак v{{v}}",
+    modUpdates: "обновлений модов: {{n}}",
     title: "С возвращением",
     quickPlay: "Быстрый запуск",
     quickPlayDesc: "Выберите версию и сразу в игру",
@@ -85,6 +88,14 @@ export const ru: Dict = {
     lastPlayed: "Игра",
   },
   instance: {
+    playtime: "Время в игре",
+    playtimeHM: "{{h}} ч {{m}} мин",
+    playtimeM: "{{m}} мин",
+    logSearch: "Поиск в логах…",
+    logAll: "Все",
+    logWarnings: "Предупреждения",
+    logErrors: "Ошибки",
+    logNoMatch: "Нет совпадений",
     all: "Все сборки",
     notFound: "Сборка не найдена",
     mods: "Моды",
@@ -136,6 +147,7 @@ export const ru: Dict = {
     useGlobal: "Использовать общие настройки",
   },
   browse: {
+    datapacks: "Дата-паки",
     title: "Обзор",
     subtitle: "Каталог Modrinth",
     installTo: "Установка в сборку «{{name}}» · {{mc}}",
@@ -182,12 +194,19 @@ export const ru: Dict = {
     followers: "{{n}} подписчиков",
     openModrinth: "Открыть на Modrinth",
   },
+  palette: {
+    placeholder: "Поиск сборок, страниц, аккаунтов…",
+    pages: "Страницы",
+    search: "Поиск…",
+  },
   worlds: {
     empty: "Миров пока нет",
     backup: "Бэкап",
     backupDone: "Бэкап мира создан",
   },
   servers: {
+    offline: "Не в сети",
+    join: "Войти на сервер",
     add: "Добавить сервер",
     empty: "Серверов пока нет",
     name: "Название",
@@ -232,6 +251,9 @@ export const ru: Dict = {
     skinFind: "Найти",
   },
   settings: {
+    notifications: "Уведомления",
+    notificationsDesc:
+      "Уведомлять о завершении длительных операций, когда лаунчер свёрнут",
     title: "Настройки",
     subtitle: "Применяются ко всем сборкам",
     memory: "Оперативная память",

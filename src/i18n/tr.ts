@@ -29,6 +29,9 @@ export const tr: Dict = {
     signIn: "Giriş yap",
   },
   home: {
+    updates: "Güncellemeler",
+    modpackUpdateTo: "Mod paketi v{{v}}",
+    modUpdates: "{{n}} mod güncellemesi",
     title: "Tekrar hoş geldin",
     quickPlay: "Hızlı oyun",
     quickPlayDesc: "Bir sürüm seç ve doğrudan oyuna gir",
@@ -85,6 +88,14 @@ export const tr: Dict = {
     lastPlayed: "Oynandı",
   },
   instance: {
+    playtime: "Oynama süresi",
+    playtimeHM: "{{h}} sa {{m}} dk",
+    playtimeM: "{{m}} dk",
+    logSearch: "Günlüklerde ara…",
+    logAll: "Tümü",
+    logWarnings: "Uyarılar",
+    logErrors: "Hatalar",
+    logNoMatch: "Eşleşen satır yok",
     all: "Tüm profiller",
     notFound: "Profil bulunamadı",
     mods: "Modlar",
@@ -136,6 +147,7 @@ export const tr: Dict = {
     useGlobal: "Genel ayarları kullan",
   },
   browse: {
+    datapacks: "Veri paketleri",
     title: "Keşfet",
     subtitle: "Modrinth kataloğu",
     installTo: "“{{name}}” profiline yükleniyor · {{mc}}",
@@ -182,12 +194,19 @@ export const tr: Dict = {
     followers: "{{n}} takipçi",
     openModrinth: "Modrinth'te aç",
   },
+  palette: {
+    placeholder: "Profil, sayfa, hesap ara…",
+    pages: "Sayfalar",
+    search: "Ara…",
+  },
   worlds: {
     empty: "Henüz dünya yok",
     backup: "Yedek",
     backupDone: "Dünya yedeklendi",
   },
   servers: {
+    offline: "Çevrimdışı",
+    join: "Sunucuya katıl",
     add: "Sunucu ekle",
     empty: "Henüz sunucu yok",
     name: "Ad",
@@ -232,6 +251,9 @@ export const tr: Dict = {
     skinFind: "Bul",
   },
   settings: {
+    notifications: "Bildirimler",
+    notificationsDesc:
+      "Başlatıcı arka plandayken uzun işlemler bittiğinde bildir",
     title: "Ayarlar",
     subtitle: "Tüm profillere uygulanır",
     memory: "Bellek (RAM)",

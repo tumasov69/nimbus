@@ -91,6 +91,7 @@ fn build_config(
     instance: &Instance,
     settings: &Settings,
     auth: AuthMethod,
+    server: Option<&str>,
 ) -> Config<Box<dyn Loader>> {
     let loader: Box<dyn Loader> = match (&instance.loader, &instance.loader_version) {
         (LoaderKind::Fabric, Some(v)) => Fabric(v.clone()).into(),
@@ -118,6 +119,15 @@ fn build_config(
             "--height".into(),
             game_height.to_string(),
         ]);
+    }
+
+    // Quick-join: auto-connect to a server on launch.
+    if let Some(addr) = server.filter(|s| !s.trim().is_empty()) {
+        let (host, port) = crate::commands::server_ping::parse_server_addr(addr);
+        custom_args.push("--server".into());
+        custom_args.push(host);
+        custom_args.push("--port".into());
+        custom_args.push(port.to_string());
     }
 
     let custom_java_args: Vec<String> =
@@ -216,6 +226,8 @@ pub async fn launch_instance(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
+    // `server` = optional "host[:port]" to auto-join on launch (quick-join).
+    server: Option<String>,
 ) -> CmdResult<()> {
     {
         let mut busy = state.busy.lock().await;
@@ -225,7 +237,7 @@ pub async fn launch_instance(
         busy.insert(id.clone());
     }
 
-    let result = launch_inner(&app, &state, &id).await;
+    let result = launch_inner(&app, &state, &id, server.as_deref()).await;
 
     state.busy.lock().await.remove(&id);
 
@@ -265,7 +277,7 @@ pub async fn install_only(app: &AppHandle, state: &AppState, id: &str) -> Result
                 uuid: None,
             },
         };
-        let config = build_config(state, &instance, &settings, auth);
+        let config = build_config(state, &instance, &settings, auth, None);
         let emitter = build_emitter(app.clone(), id.to_string()).await;
         emit_state(app, id, "installing", None);
         install(&config, Some(&emitter))
@@ -279,7 +291,12 @@ pub async fn install_only(app: &AppHandle, state: &AppState, id: &str) -> Result
     result
 }
 
-async fn launch_inner(app: &AppHandle, state: &AppState, id: &str) -> Result<(), String> {
+async fn launch_inner(
+    app: &AppHandle,
+    state: &AppState,
+    id: &str,
+    server: Option<&str>,
+) -> Result<(), String> {
     let instance = {
         let instances = state.instances.lock().await;
         instances
@@ -293,7 +310,7 @@ async fn launch_inner(app: &AppHandle, state: &AppState, id: &str) -> Result<(),
     emit_state(app, id, "preparing", None);
     let auth = resolve_auth(state).await?;
 
-    let config = build_config(state, &instance, &settings, auth);
+    let config = build_config(state, &instance, &settings, auth, server);
     let emitter = build_emitter(app.clone(), id.to_string()).await;
 
     emit_state(app, id, "installing", None);
@@ -307,6 +324,11 @@ async fn launch_inner(app: &AppHandle, state: &AppState, id: &str) -> Result<(),
         .map_err(|e| format!("Ошибка запуска: {e}"))?;
 
     state.children.lock().await.insert(id.to_string(), child);
+    state
+        .session_start
+        .lock()
+        .await
+        .insert(id.to_string(), std::time::Instant::now());
 
     {
         let mut instances = state.instances.lock().await;
@@ -342,6 +364,7 @@ async fn launch_inner(app: &AppHandle, state: &AppState, id: &str) -> Result<(),
                     Ok(Some(status)) => {
                         children.remove(&id);
                         drop(children);
+                        accrue_playtime(state.inner(), &id).await;
                         // Non-zero exit with no explicit kill = crash.
                         let crashed = !status.success();
                         let payload = if crashed {
@@ -365,6 +388,7 @@ async fn launch_inner(app: &AppHandle, state: &AppState, id: &str) -> Result<(),
                     Err(_) => {
                         children.remove(&id);
                         drop(children);
+                        accrue_playtime(state.inner(), &id).await;
                         emit_state(&app, &id, "stopped", None);
                         crate::discord::clear(app.state::<AppState>().inner()).await;
                         break;
@@ -379,12 +403,33 @@ async fn launch_inner(app: &AppHandle, state: &AppState, id: &str) -> Result<(),
     Ok(())
 }
 
+/// Adds a finished session's elapsed time to the instance's total playtime and
+/// persists it. No-op if the session wasn't tracked (e.g. already accrued).
+async fn accrue_playtime(state: &AppState, id: &str) {
+    let elapsed = state
+        .session_start
+        .lock()
+        .await
+        .remove(id)
+        .map(|s| s.elapsed().as_secs());
+    if let Some(secs) = elapsed.filter(|s| *s > 0) {
+        {
+            let mut instances = state.instances.lock().await;
+            if let Some(inst) = instances.iter_mut().find(|i| i.id == id) {
+                inst.total_playtime_secs = inst.total_playtime_secs.saturating_add(secs);
+            }
+        }
+        let _ = state.save_instances().await;
+    }
+}
+
 #[tauri::command]
 pub async fn kill_instance(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
     let child = state.children.lock().await.remove(&id);
     match child {
         Some(mut child) => {
             child.kill().await.map_err(err_to_string)?;
+            accrue_playtime(&state, &id).await;
             emit_state(&app, &id, "stopped", None);
             crate::discord::clear(&state).await;
             Ok(())

@@ -36,6 +36,7 @@ pub async fn create_instance(
         icon_path: None,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_played: None,
+        total_playtime_secs: 0,
         modpack: None,
         overrides: None,
         group: None,

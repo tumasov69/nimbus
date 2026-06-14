@@ -27,6 +27,9 @@ export const en = {
     signIn: "Sign in",
   },
   home: {
+    updates: "Updates",
+    modpackUpdateTo: "Modpack v{{v}}",
+    modUpdates: "{{n}} mod updates",
     title: "Welcome back",
     quickPlay: "Quick play",
     quickPlayDesc: "Pick a version and jump straight into the game",
@@ -83,6 +86,14 @@ export const en = {
     lastPlayed: "Played",
   },
   instance: {
+    playtime: "Playtime",
+    playtimeHM: "{{h}} h {{m}} min",
+    playtimeM: "{{m}} min",
+    logSearch: "Search logs…",
+    logAll: "All",
+    logWarnings: "Warnings",
+    logErrors: "Errors",
+    logNoMatch: "No matching lines",
     all: "All instances",
     notFound: "Instance not found",
     mods: "Mods",
@@ -134,6 +145,7 @@ export const en = {
     useGlobal: "Use global settings",
   },
   browse: {
+    datapacks: "Datapacks",
     title: "Browse",
     subtitle: "Modrinth catalog",
     installTo: "Installing into “{{name}}” · {{mc}}",
@@ -180,12 +192,19 @@ export const en = {
     followers: "{{n}} followers",
     openModrinth: "Open on Modrinth",
   },
+  palette: {
+    placeholder: "Search instances, pages, accounts…",
+    pages: "Pages",
+    search: "Search…",
+  },
   worlds: {
     empty: "No worlds yet",
     backup: "Backup",
     backupDone: "World backed up",
   },
   servers: {
+    offline: "Offline",
+    join: "Join server",
     add: "Add server",
     empty: "No servers yet",
     name: "Name",
@@ -230,6 +249,9 @@ export const en = {
     skinFind: "Find",
   },
   settings: {
+    notifications: "Notifications",
+    notificationsDesc:
+      "Notify when long operations finish while the launcher is in the background",
     title: "Settings",
     subtitle: "Applied to all instances",
     memory: "Memory",

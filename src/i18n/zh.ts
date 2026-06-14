@@ -29,6 +29,9 @@ export const zh: Dict = {
     signIn: "登录账户",
   },
   home: {
+    updates: "更新",
+    modpackUpdateTo: "整合包 v{{v}}",
+    modUpdates: "{{n}} 个模组更新",
     title: "欢迎回来",
     quickPlay: "快速开始",
     quickPlayDesc: "选择版本，立即进入游戏",
@@ -85,6 +88,14 @@ export const zh: Dict = {
     lastPlayed: "上次游玩",
   },
   instance: {
+    playtime: "游戏时长",
+    playtimeHM: "{{h}} 小时 {{m}} 分钟",
+    playtimeM: "{{m}} 分钟",
+    logSearch: "搜索日志…",
+    logAll: "全部",
+    logWarnings: "警告",
+    logErrors: "错误",
+    logNoMatch: "无匹配行",
     all: "所有实例",
     notFound: "未找到实例",
     mods: "模组",
@@ -136,6 +147,7 @@ export const zh: Dict = {
     useGlobal: "使用全局设置",
   },
   browse: {
+    datapacks: "数据包",
     title: "浏览",
     subtitle: "Modrinth 目录",
     installTo: "安装到“{{name}}” · {{mc}}",
@@ -182,12 +194,19 @@ export const zh: Dict = {
     followers: "{{n}} 位关注者",
     openModrinth: "在 Modrinth 上打开",
   },
+  palette: {
+    placeholder: "搜索实例、页面、账户…",
+    pages: "页面",
+    search: "搜索…",
+  },
   worlds: {
     empty: "还没有世界",
     backup: "备份",
     backupDone: "世界已备份",
   },
   servers: {
+    offline: "离线",
+    join: "加入服务器",
     add: "添加服务器",
     empty: "还没有服务器",
     name: "名称",
@@ -232,6 +251,8 @@ export const zh: Dict = {
     skinFind: "查找",
   },
   settings: {
+    notifications: "通知",
+    notificationsDesc: "当启动器在后台时，长时间操作完成后通知",
     title: "设置",
     subtitle: "应用于所有实例",
     memory: "内存",
