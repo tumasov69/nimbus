@@ -1,6 +1,6 @@
 [package]
 name = "nimbus"
-version = "0.5.0"
+version = "0.5.1"
 description = "Nimbus — a modern, lightweight Minecraft launcher"
 authors = ["qqqex"]
 edition = "2021"
