@@ -139,6 +139,7 @@ export const zh: Dict = {
     repairBtn: "校验",
     updateAll: "全部更新（{{n}}）",
     modsUpdated: "已更新模组：{{n}}",
+    modsUpdatedPartial: "已更新模组：{{n}}，失败：{{m}}",
     copyLogs: "复制",
     logsCopied: "日志已复制到剪贴板",
     overridesTitle: "自定义启动设置",

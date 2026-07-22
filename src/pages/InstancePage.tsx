@@ -203,24 +203,44 @@ export function InstancePage({
     }));
     setUpdatingMods(new Set(targets.map((t) => t.fileName)));
     let updated = 0;
-    for (const target of targets) {
-      try {
-        const newName = await api.modrinthUpdateMod(
-          id,
-          target.fileName,
-          target.versionId,
-        );
-        clearUpdateBadge(target.fileName, newName);
-        updated++;
-      } catch {
-        // keep going; failed mods stay on the old version
+    let failed = 0;
+    // A few downloads in flight at once: much faster than one-by-one for
+    // large packs, still gentle on the Modrinth API.
+    const queue = [...targets];
+    const worker = async () => {
+      for (;;) {
+        const target = queue.shift();
+        if (!target) return;
+        try {
+          const newName = await api.modrinthUpdateMod(
+            id,
+            target.fileName,
+            target.versionId,
+          );
+          clearUpdateBadge(target.fileName, newName);
+          updated++;
+        } catch {
+          failed++; // failed mods stay on the old version
+        } finally {
+          setUpdatingMods((prev) => {
+            const next = new Set(prev);
+            next.delete(target.fileName);
+            return next;
+          });
+        }
       }
-    }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(3, targets.length) }, worker),
+    );
     setUpdatingMods(new Set());
     api.invalidateEnrich(id);
     setMods(await api.listMods(id, contentFolder));
-    toast("success", t("instance.modsUpdated", { n: updated }));
-    notify("Nimbus", t("instance.modsUpdated", { n: updated }));
+    const message = failed
+      ? t("instance.modsUpdatedPartial", { n: updated, m: failed })
+      : t("instance.modsUpdated", { n: updated });
+    toast(failed ? "info" : "success", message);
+    notify("Nimbus", message);
   };
 
   useEffect(() => {
@@ -572,8 +592,28 @@ export function InstancePage({
                           onChange={async (checked) => {
                             try {
                               await api.toggleMod(id, mod.fileName, checked, contentFolder);
+                              // A toggle only renames the file — patch state
+                              // locally instead of re-hashing every jar and
+                              // re-querying Modrinth.
+                              const newName = checked
+                                ? mod.fileName.replace(/\.disabled$/, "")
+                                : `${mod.fileName}.disabled`;
+                              setMods((prev) =>
+                                prev.map((m) =>
+                                  m.fileName === mod.fileName
+                                    ? { ...m, fileName: newName, enabled: checked }
+                                    : m,
+                                ),
+                              );
+                              setModInfo((prev) => {
+                                const info = prev[mod.fileName];
+                                if (!info) return prev;
+                                const next = { ...prev };
+                                delete next[mod.fileName];
+                                next[newName] = { ...info, fileName: newName };
+                                return next;
+                              });
                               api.invalidateEnrich(id);
-                              loadMods(true);
                             } catch (err) {
                               toast("error", errorText(err));
                             }

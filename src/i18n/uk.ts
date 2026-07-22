@@ -139,6 +139,7 @@ export const uk: Dict = {
     repairBtn: "Перевірити",
     updateAll: "Оновити всі ({{n}})",
     modsUpdated: "Оновлено модів: {{n}}",
+    modsUpdatedPartial: "Оновлено модів: {{n}}, з помилкою: {{m}}",
     copyLogs: "Копіювати",
     logsCopied: "Логи скопійовано в буфер",
     overridesTitle: "Власні налаштування запуску",

@@ -137,6 +137,7 @@ export const en = {
     repairBtn: "Verify",
     updateAll: "Update all ({{n}})",
     modsUpdated: "Mods updated: {{n}}",
+    modsUpdatedPartial: "Mods updated: {{n}}, failed: {{m}}",
     copyLogs: "Copy",
     logsCopied: "Logs copied to clipboard",
     overridesTitle: "Custom launch settings",

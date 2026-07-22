@@ -139,6 +139,7 @@ export const tr: Dict = {
     repairBtn: "Doğrula",
     updateAll: "Tümünü güncelle ({{n}})",
     modsUpdated: "Güncellenen modlar: {{n}}",
+    modsUpdatedPartial: "Güncellenen modlar: {{n}}, başarısız: {{m}}",
     copyLogs: "Kopyala",
     logsCopied: "Günlükler panoya kopyalandı",
     overridesTitle: "Özel başlatma ayarları",

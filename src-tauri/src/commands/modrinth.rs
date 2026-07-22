@@ -257,10 +257,20 @@ pub async fn modrinth_install_version(
             .cloned()
             .ok_or("Сборка не найдена")?
     };
+    install_version_tree(&state, &instance, version_id, &project_type).await
+}
 
+/// Shared install core: downloads a version's primary file (skipping ones
+/// already present) and recursively installs required mod dependencies.
+async fn install_version_tree(
+    state: &AppState,
+    instance: &Instance,
+    version_id: String,
+    project_type: &str,
+) -> Result<Vec<String>, String> {
     let target_dir = state
-        .instance_dir(&instance_id)?
-        .join(project_type_dir(&project_type));
+        .instance_dir(&instance.id)?
+        .join(project_type_dir(project_type));
 
     let mut installed: Vec<String> = Vec::new();
     let mut visited: HashSet<String> = HashSet::new();
@@ -495,6 +505,19 @@ pub async fn modrinth_update_mod(
     let old_path = mods_dir.join(&file_name);
     if final_name != file_name && old_path.exists() {
         let _ = tokio::fs::remove_file(old_path).await;
+    }
+
+    // A newer version can require dependencies the old one didn't. Resolve
+    // them best-effort (already-present files are skipped); the mod itself is
+    // updated either way. Disabled mods don't pull new deps in.
+    if !was_disabled {
+        let instance = {
+            let instances = state.instances.lock().await;
+            instances.iter().find(|i| i.id == instance_id).cloned()
+        };
+        if let Some(instance) = instance {
+            let _ = install_version_tree(&state, &instance, version_id, "mod").await;
+        }
     }
     Ok(final_name)
 }

@@ -139,6 +139,7 @@ export const pl: Dict = {
     repairBtn: "Zweryfikuj",
     updateAll: "Zaktualizuj wszystkie ({{n}})",
     modsUpdated: "Zaktualizowano modów: {{n}}",
+    modsUpdatedPartial: "Zaktualizowano modów: {{n}}, błędy: {{m}}",
     copyLogs: "Kopiuj",
     logsCopied: "Logi skopiowane do schowka",
     overridesTitle: "Własne ustawienia uruchamiania",

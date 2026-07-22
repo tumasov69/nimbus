@@ -139,6 +139,7 @@ export const ru: Dict = {
     repairBtn: "Проверить",
     updateAll: "Обновить все ({{n}})",
     modsUpdated: "Обновлено модов: {{n}}",
+    modsUpdatedPartial: "Обновлено модов: {{n}}, с ошибкой: {{m}}",
     copyLogs: "Копировать",
     logsCopied: "Логи скопированы в буфер",
     overridesTitle: "Свои настройки запуска",
