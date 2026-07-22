@@ -269,7 +269,7 @@ export const en = {
     discordDesc: "Show \"playing Minecraft\" in your Discord profile",
     jvmArgs: "Extra JVM arguments",
     jvmArgsHint:
-      "The required Java is downloaded automatically. Memory is set with the slider above — don't pass -Xmx manually.",
+      "The required Java is downloaded automatically. Memory is set with the slider above — don't pass -Xmx manually. Leave empty to use the built-in optimized preset (G1 GC).",
     dataFolder: "Launcher folder",
     appearance: "Appearance",
     language: "Language",

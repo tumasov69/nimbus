@@ -13,7 +13,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import {
@@ -56,7 +56,19 @@ function useStatusLabel() {
   };
 }
 
-function InstanceCard({
+// Loader-flavoured fallback gradient for the cover banner.
+const LOADER_GRADIENTS: Record<string, string> = {
+  vanilla: "linear-gradient(135deg, #10b981 0%, #0ea5e9 120%)",
+  fabric: "linear-gradient(135deg, #f59e0b 0%, #f97316 120%)",
+  quilt: "linear-gradient(135deg, #d946ef 0%, #8b5cf6 120%)",
+  forge: "linear-gradient(135deg, #64748b 0%, #334155 120%)",
+  neoforge: "linear-gradient(135deg, #f97316 0%, #ef4444 120%)",
+};
+
+// Memoized: statuses tick several times a second during installs, and without
+// memo every tick re-renders the whole grid. Handlers receive the instance so
+// the parent can pass stable useCallback references.
+const InstanceCard = memo(function InstanceCard({
   instance,
   status,
   onOpen,
@@ -68,12 +80,12 @@ function InstanceCard({
 }: {
   instance: Instance;
   status?: InstanceStatus;
-  onOpen: () => void;
-  onPlay: () => void;
-  onStop: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-  onMoveToFolder: () => void;
+  onOpen: (i: Instance) => void;
+  onPlay: (i: Instance) => void;
+  onStop: (i: Instance) => void;
+  onRename: (i: Instance) => void;
+  onDelete: (i: Instance) => void;
+  onMoveToFolder: (i: Instance) => void;
 }) {
   const { t } = useTranslation();
   const statusLabel = useStatusLabel();
@@ -91,18 +103,9 @@ function InstanceCard({
 
   const icon = instanceIconSrc(instance);
 
-  // Loader-flavoured fallback gradient for the cover banner.
-  const LOADER_GRADIENTS: Record<string, string> = {
-    vanilla: "linear-gradient(135deg, #10b981 0%, #0ea5e9 120%)",
-    fabric: "linear-gradient(135deg, #f59e0b 0%, #f97316 120%)",
-    quilt: "linear-gradient(135deg, #d946ef 0%, #8b5cf6 120%)",
-    forge: "linear-gradient(135deg, #64748b 0%, #334155 120%)",
-    neoforge: "linear-gradient(135deg, #f97316 0%, #ef4444 120%)",
-  };
-
   return (
     <div
-      onClick={onOpen}
+      onClick={() => onOpen(instance)}
       className="card group cursor-pointer overflow-hidden !p-0 transition-all hover:-translate-y-0.5"
     >
       {/* Cover banner: blurred icon backdrop (or loader gradient) */}
@@ -117,7 +120,7 @@ function InstanceCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              running ? onStop() : onPlay();
+              running ? onStop(instance) : onPlay(instance);
             }}
             disabled={busy}
             title={running ? t("common.stop") : t("common.play")}
@@ -157,18 +160,18 @@ function InstanceCard({
               {
                 label: t("common.rename"),
                 icon: <Pencil className="size-4" />,
-                onClick: onRename,
+                onClick: () => onRename(instance),
               },
               {
                 label: t("instances.moveToFolder"),
                 icon: <FolderInput className="size-4" />,
-                onClick: onMoveToFolder,
+                onClick: () => onMoveToFolder(instance),
               },
               {
                 label: t("common.delete"),
                 icon: <Trash2 className="size-4" />,
                 danger: true,
-                onClick: onDelete,
+                onClick: () => onDelete(instance),
               },
             ]}
           />
@@ -218,7 +221,7 @@ function InstanceCard({
       </div>
     </div>
   );
-}
+});
 
 export function CreateInstanceModal({
   onClose,
@@ -633,26 +636,39 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
     return list;
   }, [instances, filter, folderFilter, query, sort]);
 
-  const play = async (id: string) => {
-    if (!accounts.active) {
-      toast("info", t("accounts.accountFirst"));
-      navigate({ page: "accounts" });
-      return;
-    }
-    try {
-      await api.launchInstance(id);
-    } catch (e) {
-      toast("error", errorText(e));
-    }
-  };
-
-  const stop = async (id: string) => {
-    try {
-      await api.killInstance(id);
-    } catch (e) {
-      toast("error", errorText(e));
-    }
-  };
+  // Stable references so memo(InstanceCard) actually prevents re-renders.
+  const openCard = useCallback(
+    (i: Instance) => navigate({ page: "instance", id: i.id }),
+    [navigate],
+  );
+  const playCard = useCallback(
+    async (i: Instance) => {
+      if (!accounts.active) {
+        toast("info", t("accounts.accountFirst"));
+        navigate({ page: "accounts" });
+        return;
+      }
+      try {
+        await api.launchInstance(i.id);
+      } catch (e) {
+        toast("error", errorText(e));
+      }
+    },
+    [accounts.active, navigate, toast, t],
+  );
+  const stopCard = useCallback(
+    async (i: Instance) => {
+      try {
+        await api.killInstance(i.id);
+      } catch (e) {
+        toast("error", errorText(e));
+      }
+    },
+    [toast],
+  );
+  const renameCard = useCallback((i: Instance) => setRenameFor(i), []);
+  const deleteCard = useCallback((i: Instance) => setDeleteFor(i), []);
+  const moveCard = useCallback((i: Instance) => setMoveFor(i), []);
 
   return (
     <div className="animate-fade-up">
@@ -778,12 +794,12 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
                   key={inst.id}
                   instance={inst}
                   status={statuses[inst.id]}
-                  onOpen={() => navigate({ page: "instance", id: inst.id })}
-                  onPlay={() => play(inst.id)}
-                  onStop={() => stop(inst.id)}
-                  onRename={() => setRenameFor(inst)}
-                  onDelete={() => setDeleteFor(inst)}
-                  onMoveToFolder={() => setMoveFor(inst)}
+                  onOpen={openCard}
+                  onPlay={playCard}
+                  onStop={stopCard}
+                  onRename={renameCard}
+                  onDelete={deleteCard}
+                  onMoveToFolder={moveCard}
                 />
               ))}
             </div>

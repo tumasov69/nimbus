@@ -71,7 +71,7 @@ export function Sidebar({
   };
 
   const headUrl = (a: { kind: string; uuid: string; username: string }, size: number) =>
-    `https://mc-heads.net/avatar/${a.kind === "microsoft" ? a.uuid : a.username}/${size}`;
+    `https://mc-heads.net/avatar/${encodeURIComponent(a.kind === "microsoft" ? a.uuid : a.username)}/${size}`;
 
   const currentPage =
     route.page === "instance"
@@ -142,7 +142,7 @@ export function Sidebar({
                     onClick={() => switchTo(a.id)}
                     className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent-soft cursor-pointer"
                   >
-                    <img src={headUrl(a, 28)} alt="" className="size-7 rounded" />
+                    <img src={headUrl(a, 28)} alt="" loading="lazy" decoding="async" className="size-7 rounded" />
                     <span className="min-w-0 flex-1 truncate text-t2">
                       {a.username}
                     </span>

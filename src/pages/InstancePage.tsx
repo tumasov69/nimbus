@@ -18,7 +18,7 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import { ServersTab } from "../components/ServersTab";
@@ -79,7 +79,7 @@ export function InstancePage({
   navigate: (r: Route) => void;
 }) {
   const { t } = useTranslation();
-  const { instances, statuses, logs, toast, accounts, refreshInstances } =
+  const { instances, statuses, logs, logsVersion, toast, accounts, refreshInstances } =
     useStore();
   const instance = instances.find((i) => i.id === id);
   const status = statuses[id];
@@ -101,6 +101,24 @@ export function InstancePage({
   const busy =
     status && ["preparing", "installing", "launching"].includes(status.state);
   const running = status?.state === "running";
+
+  // Filtering/classifying up to 600 log lines is not free — recompute only
+  // when new lines arrive (logsVersion) or the filters change, not on every
+  // unrelated re-render (status ticks, toasts, …).
+  const logQuery = logSearch.trim().toLowerCase();
+  const visibleLogLines = useMemo(
+    () =>
+      (logs[id] ?? [])
+        .map((line, i) => ({ i, line, level: logLevelOf(line) }))
+        .filter(({ line, level }) => {
+          if (logLevel === "error" && level !== "error") return false;
+          if (logLevel === "warn" && level === "info") return false;
+          if (logQuery && !line.toLowerCase().includes(logQuery)) return false;
+          return true;
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [logsVersion, logQuery, logLevel, id],
+  );
 
   // Vanilla instances can't load mods — their content tab manages
   // resource packs instead (matching where installs actually go).
@@ -162,7 +180,7 @@ export function InstancePage({
       const newFileName = await api.modrinthUpdateMod(id, fileName, versionId);
       clearUpdateBadge(fileName, newFileName);
       api.invalidateEnrich(id);
-      setMods(await api.listMods(id));
+      setMods(await api.listMods(id, contentFolder));
     } catch (e) {
       toast("error", errorText(e));
     } finally {
@@ -200,7 +218,7 @@ export function InstancePage({
     }
     setUpdatingMods(new Set());
     api.invalidateEnrich(id);
-    setMods(await api.listMods(id));
+    setMods(await api.listMods(id, contentFolder));
     toast("success", t("instance.modsUpdated", { n: updated }));
     notify("Nimbus", t("instance.modsUpdated", { n: updated }));
   };
@@ -294,11 +312,12 @@ export function InstancePage({
 
   // Auto-scroll to the newest line only while the user is at the bottom, so
   // scrolling up to read isn't yanked back down by incoming lines.
+  // `logs` never changes identity — logsVersion is the actual "new lines" signal.
   useEffect(() => {
     if (tab === "logs" && logRef.current && atBottomRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
-  }, [tab, logs, status?.state]);
+  }, [tab, logsVersion, status?.state]);
 
   if (!instance) {
     return (
@@ -638,15 +657,8 @@ export function InstancePage({
         {tab === "logs" &&
           (() => {
             const allLines = logs[id] ?? [];
-            const q = logSearch.trim().toLowerCase();
-            const visible = allLines
-              .map((line, i) => ({ i, line, level: logLevelOf(line) }))
-              .filter(({ line, level }) => {
-                if (logLevel === "error" && level !== "error") return false;
-                if (logLevel === "warn" && level === "info") return false;
-                if (q && !line.toLowerCase().includes(q)) return false;
-                return true;
-              });
+            const q = logQuery;
+            const visible = visibleLogLines;
             return (
               <div className="flex h-full flex-col gap-2">
                 <div className="flex items-center gap-2">

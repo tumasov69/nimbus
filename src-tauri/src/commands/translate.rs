@@ -126,7 +126,13 @@ pub async fn translate_texts(
         }
         let translated = match translate_one(&state, &text, &target).await {
             Some(t) => {
-                state.translation_cache.lock().await.insert(key, t.clone());
+                let mut cache = state.translation_cache.lock().await;
+                // Soft cap so the cache can't grow without bound over a long
+                // session (each entry is a catalog description).
+                if cache.len() >= 20_000 {
+                    cache.clear();
+                }
+                cache.insert(key, t.clone());
                 t
             }
             None => text.clone(),

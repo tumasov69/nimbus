@@ -41,6 +41,24 @@ const sanitizeSchema = {
   },
 };
 import { openUrl } from "@tauri-apps/plugin-opener";
+import type { Components } from "react-markdown";
+
+// Links inside project descriptions come from remote data. A plain <a> would
+// navigate the app webview itself to the target page — so every link opens in
+// the system browser instead, and only http(s) targets are allowed.
+const markdownComponents: Components = {
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      onClick={(e) => {
+        e.preventDefault();
+        if (href && /^https?:\/\//i.test(href)) openUrl(href).catch(() => {});
+      }}
+    >
+      {children}
+    </a>
+  ),
+};
 import * as api from "../api";
 import {
   eligibleInstances,
@@ -218,18 +236,17 @@ export function ProjectPage({
   useEffect(() => {
     if (tab !== "dependencies" || depsLoaded || versions.length === 0) return;
     setDepsLoaded(true);
-    let cancelled = false;
-    void resolveDeps(versions, cancelled).then(() => {
-      void cancelled;
-    });
+    // A shared mutable flag: a copied boolean would never see the cleanup.
+    const flag = { cancelled: false };
+    void resolveDeps(versions, flag);
     return () => {
-      cancelled = true;
+      flag.cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, versions, depsLoaded]);
 
   // Resolve project-level dependencies from the latest version.
-  const resolveDeps = async (vlist: ModrinthVersion[], cancelled: boolean) => {
+  const resolveDeps = async (vlist: ModrinthVersion[], flag: { cancelled: boolean }) => {
     const raw = vlist[0]?.dependencies ?? [];
     const byProject = new Map<string, boolean>();
     for (const d of raw) {
@@ -238,7 +255,7 @@ export function ProjectPage({
       }
     }
     if (byProject.size === 0) {
-      if (!cancelled) setDeps([]);
+      if (!flag.cancelled) setDeps([]);
       return;
     }
     try {
@@ -247,7 +264,7 @@ export function ProjectPage({
           api.modrinthGetProject(pid).catch(() => null),
         ),
       );
-      if (cancelled) return;
+      if (flag.cancelled) return;
       setDeps(
         projects
           .filter((p): p is Record<string, unknown> => !!p)
@@ -259,7 +276,7 @@ export function ProjectPage({
           })),
       );
     } catch {
-      if (!cancelled) setDeps([]);
+      if (!flag.cancelled) setDeps([]);
     }
   };
 
@@ -382,7 +399,7 @@ export function ProjectPage({
               title={t("project.openModrinth")}
               onClick={() =>
                 openUrl(
-                  `https://modrinth.com/${projectType}/${project.slug ?? projectId}`,
+                  `https://modrinth.com/${projectType}/${encodeURIComponent(project.slug ?? projectId)}`,
                 ).catch(() => {})
               }
             >
@@ -461,6 +478,7 @@ export function ProjectPage({
               <Markdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+                components={markdownComponents}
               >
                 {(showTr ? bodyTr : project.body) ?? ""}
               </Markdown>

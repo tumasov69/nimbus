@@ -70,10 +70,12 @@ export function AccountsPage() {
               return (
                 <div key={acc.id} className="flex items-center gap-3 px-4 py-3.5">
                   <img
-                    src={`https://mc-heads.net/avatar/${
-                      acc.kind === "microsoft" ? acc.uuid : acc.username
-                    }/48`}
+                    src={`https://mc-heads.net/avatar/${encodeURIComponent(
+                      acc.kind === "microsoft" ? acc.uuid : acc.username,
+                    )}/48`}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="size-10 rounded-lg"
                   />
                   <div className="min-w-0 flex-1">
@@ -103,8 +105,12 @@ export function AccountsPage() {
                     <button
                       className="btn-ghost"
                       onClick={async () => {
-                        await api.setActiveAccount(acc.id);
-                        refreshAccounts();
+                        try {
+                          await api.setActiveAccount(acc.id);
+                          refreshAccounts();
+                        } catch (e) {
+                          toast("error", errorText(e));
+                        }
                       }}
                     >
                       {t("accounts.choose")}
@@ -113,8 +119,12 @@ export function AccountsPage() {
                   <button
                     className="btn-ghost !p-2 hover:!bg-danger-soft hover:!text-danger"
                     onClick={async () => {
-                      await api.removeAccount(acc.id);
-                      refreshAccounts();
+                      try {
+                        await api.removeAccount(acc.id);
+                        refreshAccounts();
+                      } catch (e) {
+                        toast("error", errorText(e));
+                      }
                     }}
                   >
                     <Trash2 className="size-4" />

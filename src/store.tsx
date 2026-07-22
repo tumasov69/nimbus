@@ -46,6 +46,9 @@ interface Store {
   systemInfo: SystemInfo | null;
   statuses: Record<string, InstanceStatus>;
   logs: Record<string, string[]>;
+  /** Bumped (throttled) when new console lines arrive; `logs` keeps the same
+   *  object identity, so effects that follow the log tail must depend on this. */
+  logsVersion: number;
   toasts: Toast[];
   appUpdate: { version: string } | null;
   updateInstalling: boolean;
@@ -249,11 +252,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
 
     unlisteners.push(
-      listen<{ instanceId: string; line: string }>("console-line", (e) => {
-        const { instanceId, line } = e.payload;
+      // The backend batches console output (~200 ms per flush) so a chatty
+      // game costs one IPC event per tick instead of one per line.
+      listen<{ instanceId: string; lines: string[] }>("console-lines", (e) => {
+        const { instanceId, lines } = e.payload;
         const logs = logsRef.current;
         if (!logs[instanceId]) logs[instanceId] = [];
-        logs[instanceId].push(line);
+        logs[instanceId].push(...lines);
         if (logs[instanceId].length > 600) {
           logs[instanceId] = logs[instanceId].slice(-500);
         }
@@ -310,6 +315,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       systemInfo,
       statuses,
       logs: logsRef.current,
+      logsVersion,
       toasts,
       appUpdate,
       updateInstalling,

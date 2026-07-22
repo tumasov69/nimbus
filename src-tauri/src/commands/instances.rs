@@ -43,7 +43,7 @@ pub async fn create_instance(
         quick: quick.unwrap_or(false),
     };
 
-    std::fs::create_dir_all(state.instance_dir(&instance.id)).map_err(err_to_string)?;
+    std::fs::create_dir_all(state.instance_dir(&instance.id)?).map_err(err_to_string)?;
 
     state.instances.lock().await.push(instance.clone());
     state.save_instances().await.map_err(err_to_string)?;
@@ -97,8 +97,8 @@ pub async fn clone_instance(state: State<'_, AppState>, id: String) -> CmdResult
     clone.quick = false;
 
     // Copy instance files (mods, worlds, configs) — game data is shared.
-    let src_dir = state.instance_dir(&id);
-    let dst_dir = state.instance_dir(&clone.id);
+    let src_dir = state.instance_dir(&id)?;
+    let dst_dir = state.instance_dir(&clone.id)?;
     if src_dir.exists() {
         let (s, d) = (src_dir.clone(), dst_dir.clone());
         tokio::task::spawn_blocking(move || copy_dir(&s, &d))
@@ -122,7 +122,7 @@ pub async fn set_instance_icon(
     id: String,
     source_path: String,
 ) -> CmdResult<String> {
-    let dir = state.instance_dir(&id);
+    let dir = state.instance_dir(&id)?;
     std::fs::create_dir_all(&dir).map_err(err_to_string)?;
     let stamp = chrono::Utc::now().timestamp_millis();
     let dest = dir.join(format!("icon_{stamp}.png"));
@@ -227,7 +227,7 @@ pub async fn delete_instance(state: State<'_, AppState>, id: String) -> CmdResul
     }
     state.save_instances().await.map_err(err_to_string)?;
 
-    let dir = state.instance_dir(&id);
+    let dir = state.instance_dir(&id)?;
     if dir.exists() {
         std::fs::remove_dir_all(&dir).map_err(err_to_string)?;
     }
@@ -236,7 +236,7 @@ pub async fn delete_instance(state: State<'_, AppState>, id: String) -> CmdResul
 
 #[tauri::command]
 pub async fn open_instance_folder(state: State<'_, AppState>, id: String) -> CmdResult<()> {
-    let dir = state.instance_dir(&id);
+    let dir = state.instance_dir(&id)?;
     std::fs::create_dir_all(&dir).map_err(err_to_string)?;
     tauri_plugin_opener::open_path(dir.to_string_lossy().into_owned(), None::<&str>)
         .map_err(err_to_string)
@@ -268,7 +268,7 @@ pub async fn list_mods(
     folder: Option<String>,
 ) -> CmdResult<Vec<ModFile>> {
     let folder = content_folder(folder.as_deref())?;
-    let dir = state.instance_dir(&id).join(folder);
+    let dir = state.instance_dir(&id)?.join(folder);
     let jars_only = folder == "mods";
     let mut result = Vec::new();
     if let Ok(entries) = std::fs::read_dir(&dir) {
@@ -311,7 +311,7 @@ pub async fn toggle_mod(
         return Err("Некорректное имя файла".into());
     }
     let dir = state
-        .instance_dir(&id)
+        .instance_dir(&id)?
         .join(content_folder(folder.as_deref())?);
     let from = dir.join(&file_name);
     let to = if enabled {
@@ -336,7 +336,7 @@ pub async fn delete_mod(
         return Err("Некорректное имя файла".into());
     }
     let path = state
-        .instance_dir(&id)
+        .instance_dir(&id)?
         .join(content_folder(folder.as_deref())?)
         .join(&file_name);
     std::fs::remove_file(path).map_err(err_to_string)

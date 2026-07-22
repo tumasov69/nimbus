@@ -7,7 +7,11 @@ use tokio::sync::Mutex;
 use crate::models::{AccountStore, Instance, Settings};
 use crate::storage;
 
-pub const USER_AGENT: &str = "NimbusLauncher/0.1.0 (tumasov1337@gmail.com)";
+pub const USER_AGENT: &str = concat!(
+    "NimbusLauncher/",
+    env!("CARGO_PKG_VERSION"),
+    " (tumasov1337@gmail.com)"
+);
 
 pub struct AppState {
     pub data_dir: PathBuf,
@@ -76,8 +80,17 @@ impl AppState {
         self.data_dir.join("instances")
     }
 
-    pub fn instance_dir(&self, id: &str) -> PathBuf {
-        self.instances_dir().join(id)
+    /// Resolves the folder of an instance by id. The id is validated (our ids
+    /// are always UUIDs) so a malicious value like `..` can never escape the
+    /// instances root — several commands delete/write through this path.
+    pub fn instance_dir(&self, id: &str) -> Result<PathBuf, String> {
+        let valid = !id.is_empty()
+            && id.len() <= 64
+            && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+        if !valid {
+            return Err("Некорректный идентификатор сборки".into());
+        }
+        Ok(self.instances_dir().join(id))
     }
 
     pub fn cache_dir(&self) -> PathBuf {

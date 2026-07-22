@@ -259,7 +259,7 @@ pub async fn modrinth_install_version(
     };
 
     let target_dir = state
-        .instance_dir(&instance_id)
+        .instance_dir(&instance_id)?
         .join(project_type_dir(&project_type));
 
     let mut installed: Vec<String> = Vec::new();
@@ -356,7 +356,7 @@ pub async fn modrinth_enrich_mods(
             .cloned()
             .ok_or("Сборка не найдена")?
     };
-    let mods_dir = state.instance_dir(&instance_id).join("mods");
+    let mods_dir = state.instance_dir(&instance_id)?.join("mods");
 
     // Hash every jar on a blocking thread.
     let hash_map: Vec<(String, String)> = {
@@ -473,7 +473,7 @@ pub async fn modrinth_update_mod(
     if file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
         return Err("Некорректное имя файла".into());
     }
-    let mods_dir = state.instance_dir(&instance_id).join("mods");
+    let mods_dir = state.instance_dir(&instance_id)?.join("mods");
     let was_disabled = file_name.ends_with(".disabled");
 
     let version = api_get(&state, &format!("{API}/version/{version_id}")).await?;
@@ -534,6 +534,25 @@ fn safe_join(base: &Path, relative: &str) -> Result<PathBuf, String> {
         }
     }
     Ok(base.join(rel))
+}
+
+/// Download hosts a modpack index may reference, per the Modrinth .mrpack
+/// spec. Blocks a crafted pack from pulling files off arbitrary servers.
+fn allowed_pack_url(raw: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(raw) else {
+        return false;
+    };
+    parsed.scheme() == "https"
+        && matches!(
+            parsed.host_str(),
+            Some(
+                "cdn.modrinth.com"
+                    | "cdn-raw.modrinth.com"
+                    | "github.com"
+                    | "raw.githubusercontent.com"
+                    | "gitlab.com"
+            )
+        )
 }
 
 /// Reads modrinth.index.json from a .mrpack archive.
@@ -693,7 +712,7 @@ async fn run_pack_install(
     index: &Value,
     pack_path: &Path,
 ) -> CmdResult<Instance> {
-    let instance_dir = state.instance_dir(&instance.id);
+    let instance_dir = state.instance_dir(&instance.id)?;
     std::fs::create_dir_all(&instance_dir).map_err(err_to_string)?;
 
     state.busy.lock().await.insert(instance.id.clone());
@@ -760,6 +779,9 @@ async fn install_pack_files(
             .and_then(|d| d.first())
             .and_then(|u| u.as_str())
             .ok_or("Файл модпака без ссылки")?;
+        if !allowed_pack_url(url) {
+            return Err(format!("Недопустимый источник файла в модпаке: {url}"));
+        }
         let sha1 = f["hashes"]["sha1"].as_str().map(String::from);
         managed.push(rel.replace('\\', "/"));
         planned.push((url.to_string(), dest, sha1));
@@ -945,7 +967,7 @@ pub async fn modrinth_update_modpack(
     download_to(&state, pack_url, &pack_path, pack_sha1).await?;
     let index = read_pack_index(&pack_path).await?;
 
-    let instance_dir = state.instance_dir(&instance_id);
+    let instance_dir = state.instance_dir(&instance_id)?;
     state.busy.lock().await.insert(instance_id.clone());
 
     // Remove files owned by the previous modpack version.
@@ -1002,7 +1024,7 @@ pub async fn export_mrpack(
             .cloned()
             .ok_or("Сборка не найдена")?
     };
-    let instance_dir = state.instance_dir(&instance_id);
+    let instance_dir = state.instance_dir(&instance_id)?;
 
     // Hash mod jars and resolve them on Modrinth.
     let mods_dir = instance_dir.join("mods");

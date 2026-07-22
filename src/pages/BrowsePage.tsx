@@ -141,14 +141,59 @@ function cacheSet(key: string, data: SearchResult) {
   searchCache.set(key, { at: Date.now(), data });
 }
 
-/** Allows only a bare <svg> with paths — strips scripts, events and external
- *  refs so a compromised API response can't inject active content. */
+/** Rebuilds a category icon from an allowlist of plain-shape SVG tags and
+ *  attributes. Anything not on the list (scripts, event handlers, <style>,
+ *  <use>/<image> refs, foreignObject…) is dropped, so a compromised API
+ *  response can't smuggle active content into dangerouslySetInnerHTML. */
+const SVG_TAGS = new Set([
+  "svg", "g", "path", "circle", "ellipse", "rect", "line",
+  "polyline", "polygon", "defs", "clippath", "lineargradient",
+  "radialgradient", "stop", "title",
+]);
+const SVG_ATTRS = new Set([
+  "viewbox", "width", "height", "fill", "stroke", "stroke-width",
+  "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-dasharray",
+  "d", "cx", "cy", "r", "rx", "ry", "x", "y", "x1", "y1", "x2", "y2",
+  "points", "transform", "opacity", "fill-rule", "clip-rule", "clip-path",
+  "fill-opacity", "stroke-opacity", "offset", "stop-color", "stop-opacity",
+  "gradientunits", "gradienttransform", "id", "class", "xmlns",
+]);
+
+// The category set is small and static per session — cache sanitized output
+// so the DOMParser pass runs once per icon, not on every render.
+const svgIconCache = new Map<string, string | null>();
+
 function sanitizeSvgIcon(svg: string): string | null {
+  const cached = svgIconCache.get(svg);
+  if (cached !== undefined) return cached;
+  const result = sanitizeSvgIconUncached(svg);
+  svgIconCache.set(svg, result);
+  return result;
+}
+
+function sanitizeSvgIconUncached(svg: string): string | null {
   if (!svg || !svg.includes("<svg")) return null;
-  if (/<script|on\w+\s*=|javascript:|<foreignObject|xlink:href\s*=\s*["']?\s*http/i.test(svg)) {
+  const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+  const root = doc.documentElement;
+  if (root.tagName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) {
     return null;
   }
-  return svg;
+  const clean = (el: Element): boolean => {
+    if (!SVG_TAGS.has(el.tagName.toLowerCase())) return false;
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase();
+      // url(#id) references are fine; anything with a protocol is not.
+      if (!SVG_ATTRS.has(name) || /url\s*\(\s*['"]?\s*[a-z]+:/i.test(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    }
+    for (const child of [...el.children]) {
+      if (!clean(child)) child.remove();
+    }
+    return true;
+  };
+  if (!clean(root)) return null;
+  return new XMLSerializer().serializeToString(root);
 }
 
 const FilterItem = memo(function FilterItem({

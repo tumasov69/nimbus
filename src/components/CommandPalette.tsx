@@ -81,7 +81,7 @@ export function CommandPalette({
       keywords: a.id === accounts.active ? t("accounts.active") : "",
       icon: (
         <img
-          src={`https://mc-heads.net/avatar/${a.kind === "microsoft" ? a.uuid : a.username}/32`}
+          src={`https://mc-heads.net/avatar/${encodeURIComponent(a.kind === "microsoft" ? a.uuid : a.username)}/32`}
           alt=""
           className="size-4 rounded"
         />

@@ -188,11 +188,36 @@ export interface ModpackUpdate {
   versionNumber: string;
 }
 
-export const checkModpackUpdate = (instanceId: string) =>
-  invoke<ModpackUpdate | null>("modrinth_check_modpack_update", { instanceId });
+// Home + instance pages both poll this for every modpack instance on mount;
+// without a cache each visit re-hits the Modrinth API N times.
+const packUpdateCache = new Map<
+  string,
+  { at: number; data: ModpackUpdate | null }
+>();
+const PACK_UPDATE_TTL = 5 * 60_000;
 
-export const updateModpack = (instanceId: string) =>
-  invoke<Instance>("modrinth_update_modpack", { instanceId });
+export async function checkModpackUpdate(
+  instanceId: string,
+): Promise<ModpackUpdate | null> {
+  const cached = packUpdateCache.get(instanceId);
+  if (cached && Date.now() - cached.at < PACK_UPDATE_TTL) {
+    return cached.data;
+  }
+  const data = await invoke<ModpackUpdate | null>(
+    "modrinth_check_modpack_update",
+    { instanceId },
+  );
+  packUpdateCache.set(instanceId, { at: Date.now(), data });
+  return data;
+}
+
+export async function updateModpack(instanceId: string): Promise<Instance> {
+  const result = await invoke<Instance>("modrinth_update_modpack", {
+    instanceId,
+  });
+  packUpdateCache.delete(instanceId);
+  return result;
+}
 
 // --- worlds & servers ---
 export interface WorldInfo {

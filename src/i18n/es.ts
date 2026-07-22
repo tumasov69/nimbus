@@ -271,7 +271,7 @@ export const es: Dict = {
     discordDesc: "Mostrar «jugando a Minecraft» en tu perfil de Discord",
     jvmArgs: "Argumentos JVM adicionales",
     jvmArgsHint:
-      "La versión de Java necesaria se descarga automáticamente. La memoria se ajusta con el control deslizante de arriba: no pases -Xmx manualmente.",
+      "La versión de Java necesaria se descarga automáticamente. La memoria se ajusta con el control deslizante de arriba: no pases -Xmx manualmente. Déjalo vacío para usar el preajuste optimizado integrado (G1 GC).",
     dataFolder: "Carpeta del launcher",
     appearance: "Apariencia",
     language: "Idioma",

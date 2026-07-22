@@ -64,7 +64,7 @@ fn read_level_dat(level_dat: &Path) -> (Option<String>, Option<i64>) {
 
 #[tauri::command]
 pub async fn list_worlds(state: State<'_, AppState>, id: String) -> CmdResult<Vec<WorldInfo>> {
-    let saves = state.instance_dir(&id).join("saves");
+    let saves = state.instance_dir(&id)?.join("saves");
     let result = tokio::task::spawn_blocking(move || {
         let mut worlds = Vec::new();
         if let Ok(entries) = std::fs::read_dir(&saves) {
@@ -104,7 +104,7 @@ pub async fn delete_world(
     if !valid_folder(&folder) {
         return Err("Некорректная папка".into());
     }
-    let path = state.instance_dir(&id).join("saves").join(&folder);
+    let path = state.instance_dir(&id)?.join("saves").join(&folder);
     if path.is_dir() {
         tokio::fs::remove_dir_all(path).await.map_err(err_to_string)?;
     }
@@ -120,7 +120,7 @@ pub async fn open_world_folder(
     if !valid_folder(&folder) {
         return Err("Некорректная папка".into());
     }
-    let path = state.instance_dir(&id).join("saves").join(&folder);
+    let path = state.instance_dir(&id)?.join("saves").join(&folder);
     tauri_plugin_opener::open_path(path.to_string_lossy().into_owned(), None::<&str>)
         .map_err(err_to_string)
 }
@@ -136,7 +136,7 @@ pub async fn backup_world(
     if !valid_folder(&folder) {
         return Err("Некорректная папка".into());
     }
-    let world_dir = state.instance_dir(&id).join("saves").join(&folder);
+    let world_dir = state.instance_dir(&id)?.join("saves").join(&folder);
     if !world_dir.is_dir() {
         return Err("Мир не найден".into());
     }
@@ -195,7 +195,7 @@ struct ServersFile {
 
 #[tauri::command]
 pub async fn list_servers(state: State<'_, AppState>, id: String) -> CmdResult<Vec<ServerEntry>> {
-    let path = state.instance_dir(&id).join("servers.dat");
+    let path = state.instance_dir(&id)?.join("servers.dat");
     let result = tokio::task::spawn_blocking(move || {
         let Ok(bytes) = std::fs::read(&path) else {
             return Vec::new();
@@ -234,7 +234,7 @@ pub async fn add_server(
     }
     let mut servers = list_servers(state.clone(), id.clone()).await?;
     servers.push(ServerEntry { name, ip, icon: None });
-    write_servers(state.instance_dir(&id).join("servers.dat"), servers.clone()).await?;
+    write_servers(state.instance_dir(&id)?.join("servers.dat"), servers.clone()).await?;
     Ok(servers)
 }
 
@@ -248,6 +248,6 @@ pub async fn remove_server(
     if index < servers.len() {
         servers.remove(index);
     }
-    write_servers(state.instance_dir(&id).join("servers.dat"), servers.clone()).await?;
+    write_servers(state.instance_dir(&id)?.join("servers.dat"), servers.clone()).await?;
     Ok(servers)
 }

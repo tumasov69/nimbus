@@ -1,3 +1,4 @@
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
 use lyceris::auth::AuthMethod;
@@ -86,6 +87,25 @@ async fn resolve_auth(state: &AppState) -> Result<AuthMethod, String> {
     }
 }
 
+/// JVM defaults applied when the user left the Java-arguments field empty.
+/// Lyceris only passes `-Xmx` — without these the heap starts tiny and grows
+/// on the fly (chunk-gen stutter in the first minutes) and GC runs untuned.
+/// Same G1 family the official launcher ships; -Xms at half the limit keeps
+/// startup RAM modest while skipping most of the early heap growth.
+fn default_java_args(memory_mb: u64) -> Vec<String> {
+    let xms = (memory_mb / 2).max(512);
+    vec![
+        format!("-Xms{xms}M"),
+        "-XX:+UnlockExperimentalVMOptions".into(),
+        "-XX:+UseG1GC".into(),
+        "-XX:G1NewSizePercent=20".into(),
+        "-XX:G1ReservePercent=20".into(),
+        "-XX:MaxGCPauseMillis=50".into(),
+        "-XX:G1HeapRegionSize=32M".into(),
+        "-XX:+ParallelRefProcEnabled".into(),
+    ]
+}
+
 fn build_config(
     state: &AppState,
     instance: &Instance,
@@ -130,8 +150,12 @@ fn build_config(
         custom_args.push(port.to_string());
     }
 
-    let custom_java_args: Vec<String> =
-        java_args.split_whitespace().map(String::from).collect();
+    // User-supplied args always win over the built-in preset.
+    let custom_java_args: Vec<String> = if java_args.trim().is_empty() {
+        default_java_args(memory_mb)
+    } else {
+        java_args.split_whitespace().map(String::from).collect()
+    };
 
     ConfigBuilder::new(state.game_dir(), instance.mc_version.clone(), auth)
         .memory(Memory::Megabyte(memory_mb))
@@ -206,14 +230,40 @@ async fn build_emitter(app: AppHandle, instance_id: String) -> Emitter {
     }
 
     {
-        let app = app.clone();
-        let id = instance_id.clone();
+        // A modded game can spam hundreds of log lines per second; emitting
+        // each one is an IPC round-trip + a webview wake-up while the game is
+        // running. Buffer lines and flush them as one batched event instead.
+        let buf: Arc<StdMutex<Vec<String>>> = Arc::new(StdMutex::new(Vec::new()));
+        // `alive` is owned by the console callback: once the game exits and
+        // lyceris drops the emitter, the flusher drains the tail and stops.
+        let alive = Arc::new(());
+        let alive_probe = Arc::downgrade(&alive);
+
+        {
+            let app = app.clone();
+            let id = instance_id.clone();
+            let buf = buf.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    let lines: Vec<String> = std::mem::take(&mut *buf.lock().unwrap());
+                    if !lines.is_empty() {
+                        let _ = app.emit(
+                            "console-lines",
+                            serde_json::json!({ "instanceId": id, "lines": lines }),
+                        );
+                    } else if alive_probe.upgrade().is_none() {
+                        // Flush-before-exit order: the tail is never dropped.
+                        break;
+                    }
+                }
+            });
+        }
+
         emitter
             .on(Event::Console, move |line: String| {
-                let _ = app.emit(
-                    "console-line",
-                    serde_json::json!({ "instanceId": id, "line": line }),
-                );
+                let _ = &alive;
+                buf.lock().unwrap().push(line);
             })
             .await;
     }

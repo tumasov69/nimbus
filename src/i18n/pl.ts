@@ -271,7 +271,7 @@ export const pl: Dict = {
     discordDesc: "Pokazuj „gra w Minecraft” w profilu Discord",
     jvmArgs: "Dodatkowe argumenty JVM",
     jvmArgsHint:
-      "Wymagana wersja Javy pobiera się automatycznie. Pamięć ustawia się suwakiem powyżej — nie podawaj -Xmx ręcznie.",
+      "Wymagana wersja Javy pobiera się automatycznie. Pamięć ustawia się suwakiem powyżej — nie podawaj -Xmx ręcznie. Zostaw puste, aby użyć wbudowanego zoptymalizowanego zestawu (G1 GC).",
     dataFolder: "Folder launchera",
     appearance: "Wygląd",
     language: "Język",

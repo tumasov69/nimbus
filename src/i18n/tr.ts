@@ -271,7 +271,7 @@ export const tr: Dict = {
     discordDesc: "Discord profilinde \"Minecraft oynuyor\" göster",
     jvmArgs: "Ek JVM argümanları",
     jvmArgsHint:
-      "Gerekli Java sürümü otomatik indirilir. Bellek yukarıdaki kaydırıcıyla ayarlanır — -Xmx'i elle geçme.",
+      "Gerekli Java sürümü otomatik indirilir. Bellek yukarıdaki kaydırıcıyla ayarlanır — -Xmx'i elle geçme. Yerleşik optimize ayarları (G1 GC) kullanmak için boş bırak.",
     dataFolder: "Başlatıcı klasörü",
     appearance: "Görünüm",
     language: "Dil",

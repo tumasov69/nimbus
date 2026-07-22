@@ -270,7 +270,7 @@ export const zh: Dict = {
     discordDesc: "在 Discord 资料中显示“正在玩 Minecraft”",
     jvmArgs: "额外的 JVM 参数",
     jvmArgsHint:
-      "所需的 Java 版本会自动下载。内存由上方滑块设置——请勿手动传入 -Xmx。",
+      "所需的 Java 版本会自动下载。内存由上方滑块设置——请勿手动传入 -Xmx。留空则使用内置优化预设（G1 GC）。",
     dataFolder: "启动器文件夹",
     appearance: "外观",
     language: "语言",
