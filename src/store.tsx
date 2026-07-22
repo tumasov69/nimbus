@@ -39,6 +39,33 @@ export interface Toast {
 // The Update handle from the updater plugin lives outside React state.
 let pendingUpdate: import("@tauri-apps/plugin-updater").Update | null = null;
 
+/**
+ * Downloads and installs an update with stall protection. The updater plugin
+ * has no timeout of its own: if the connection silently dies mid-download
+ * (common with flaky access to GitHub), its promise hangs forever and the UI
+ * stays on the update spinner. Here every received chunk re-arms a 30 s
+ * watchdog — a true stall rejects, letting callers fall back to a retry.
+ */
+export async function downloadAndInstallGuarded(
+  update: import("@tauri-apps/plugin-updater").Update,
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    let timer = 0;
+    const arm = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(
+        () => reject(new Error(i18n.t("settings.updateStalled"))),
+        30_000,
+      );
+    };
+    arm();
+    update
+      .downloadAndInstall(arm, { timeout: 300_000 })
+      .then(resolve, reject)
+      .finally(() => window.clearTimeout(timer));
+  });
+}
+
 interface Store {
   instances: Instance[];
   accounts: AccountStore;
@@ -155,7 +182,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Forced update on startup: if a new version exists, install it and
     // relaunch before the user can do anything (keeps everyone current).
     import("@tauri-apps/plugin-updater")
-      .then(({ check }) => check())
+      .then(({ check }) => check({ timeout: 30_000 }))
       .then(async (update) => {
         if (!update) return;
         pendingUpdate = update;
@@ -163,7 +190,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setForcedUpdate(true);
         setUpdateInstalling(true);
         try {
-          await update.downloadAndInstall();
+          await downloadAndInstallGuarded(update);
           const { relaunch } = await import("@tauri-apps/plugin-process");
           await relaunch();
         } catch {
@@ -296,7 +323,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUpdateInstalling(true);
     toast("info", i18n.t("settings.updateDownloading"));
     try {
-      await pendingUpdate.downloadAndInstall();
+      await downloadAndInstallGuarded(pendingUpdate);
       const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
     } catch (e) {

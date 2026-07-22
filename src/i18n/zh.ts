@@ -288,6 +288,7 @@ export const zh: Dict = {
     updateAvailable: "有新版本 {{v}}",
     updateInstall: "更新并重启",
     updateDownloading: "正在下载更新…",
+    updateStalled: "网络停止响应——更新下载已中止。请重试。",
     importTitle: "导入整合包",
     importDesc: "安装本地 .mrpack 文件",
     importBtn: "选择文件",

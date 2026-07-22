@@ -287,6 +287,7 @@ export const en = {
     updateAvailable: "Version {{v}} available",
     updateInstall: "Update and restart",
     updateDownloading: "Downloading update…",
+    updateStalled: "Network stopped responding — update download aborted. Try again.",
     importTitle: "Import modpack",
     importDesc: "Install a local .mrpack file",
     importBtn: "Choose file",

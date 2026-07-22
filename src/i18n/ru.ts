@@ -289,6 +289,7 @@ export const ru: Dict = {
     updateAvailable: "Доступна версия {{v}}",
     updateInstall: "Обновить и перезапустить",
     updateDownloading: "Загрузка обновления…",
+    updateStalled: "Сеть перестала отвечать — загрузка обновления прервана. Попробуйте ещё раз.",
     importTitle: "Импорт модпака",
     importDesc: "Установить локальный файл .mrpack",
     importBtn: "Выбрать файл",

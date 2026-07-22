@@ -289,6 +289,7 @@ export const tr: Dict = {
     updateAvailable: "Sürüm {{v}} mevcut",
     updateInstall: "Güncelle ve yeniden başlat",
     updateDownloading: "Güncelleme indiriliyor…",
+    updateStalled: "Ağ yanıt vermeyi durdurdu — güncelleme indirmesi iptal edildi. Tekrar dene.",
     importTitle: "Mod paketi içe aktar",
     importDesc: "Yerel bir .mrpack dosyası yükle",
     importBtn: "Dosya seç",

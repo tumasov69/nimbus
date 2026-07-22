@@ -289,6 +289,7 @@ export const de: Dict = {
     updateAvailable: "Version {{v}} verfügbar",
     updateInstall: "Aktualisieren und neu starten",
     updateDownloading: "Update wird heruntergeladen…",
+    updateStalled: "Netzwerk antwortet nicht mehr — Update-Download abgebrochen. Bitte erneut versuchen.",
     importTitle: "Modpack importieren",
     importDesc: "Eine lokale .mrpack-Datei installieren",
     importBtn: "Datei wählen",

@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import { Field, SelectWrap, Spinner, Toggle } from "../components/ui";
 import { LANGUAGES } from "../i18n";
-import { errorText, useStore } from "../store";
+import { downloadAndInstallGuarded, errorText, useStore } from "../store";
 import type { Settings } from "../types";
 
 export function SettingsPage() {
@@ -334,7 +334,7 @@ function UpdatesCard() {
   const checkForUpdates = async () => {
     setChecking(true);
     try {
-      const result = await check();
+      const result = await check({ timeout: 30_000 });
       setUpdate(result);
       if (!result) toast("success", t("settings.upToDate"));
     } catch (e) {
@@ -349,7 +349,7 @@ function UpdatesCard() {
     setInstalling(true);
     toast("info", t("settings.updateDownloading"));
     try {
-      await update.downloadAndInstall();
+      await downloadAndInstallGuarded(update);
       await relaunch();
     } catch (e) {
       toast("error", errorText(e));

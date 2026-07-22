@@ -289,6 +289,7 @@ export const uk: Dict = {
     updateAvailable: "Доступна версія {{v}}",
     updateInstall: "Оновити та перезапустити",
     updateDownloading: "Завантаження оновлення…",
+    updateStalled: "Мережа перестала відповідати — завантаження оновлення перервано. Спробуйте ще раз.",
     importTitle: "Імпорт модпака",
     importDesc: "Встановити локальний файл .mrpack",
     importBtn: "Обрати файл",
