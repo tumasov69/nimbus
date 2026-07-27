@@ -35,6 +35,8 @@ export interface Settings {
   /** UI language code, "" = system */
   language: string;
   theme: "light" | "dark" | "oled" | "system";
+  /** Accent colour preset, see ACCENTS in SettingsPage. */
+  accent: string;
   downloadConcurrency: number;
   discordRpc: boolean;
   notificationsEnabled: boolean;

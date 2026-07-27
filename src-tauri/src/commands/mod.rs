@@ -5,6 +5,7 @@ pub mod launch;
 pub mod modrinth;
 pub mod server_ping;
 pub mod settings;
+pub mod tools;
 pub mod translate;
 pub mod versions;
 

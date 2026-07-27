@@ -101,6 +101,8 @@ pub struct Settings {
     pub language: String,
     /// "light" | "dark" | "oled" | "system"
     pub theme: String,
+    /// Accent colour preset: "indigo" | "sky" | "emerald" | "amber" | "rose" | "violet".
+    pub accent: String,
     /// Parallel downloads for modpack installs.
     pub download_concurrency: usize,
     /// Show "playing Minecraft" in Discord.
@@ -120,6 +122,7 @@ impl Default for Settings {
             hide_launcher: true,
             language: String::new(),
             theme: "system".into(),
+            accent: "indigo".into(),
             download_concurrency: 8,
             discord_rpc: true,
             notifications_enabled: true,

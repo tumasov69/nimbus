@@ -2,10 +2,10 @@ import { open as openDialog, save } from "@tauri-apps/plugin-dialog";
 import {
   ArrowDownToLine,
   ArrowLeft,
-  Box,
   Clock,
   Copy,
   CopyPlus,
+  ExternalLink,
   FolderOpen,
   Image,
   Package,
@@ -16,6 +16,8 @@ import {
   Search,
   Square,
   Trash2,
+  TriangleAlert,
+  Undo2,
   Wrench,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -25,11 +27,16 @@ import { ServersTab } from "../components/ServersTab";
 import { WorldsTab } from "../components/WorldsTab";
 import {
   Field,
+  InstanceIcon,
+  LOADER_GRADIENTS,
   LoaderBadge,
+  Modal,
   ProgressBar,
   Spinner,
   Toggle,
   formatBytes,
+  formatDuration,
+  useTransferStats,
   formatPlaytime,
   instanceIconSrc,
 } from "../components/ui";
@@ -39,7 +46,9 @@ import { errorText, useStore } from "../store";
 import type { InstanceOverrides, ModFile } from "../types";
 import { DeleteInstanceModal, RenameInstanceModal } from "./InstancesPage";
 
-type Tab = "mods" | "worlds" | "servers" | "logs" | "settings";
+type Tab = "mods" | "worlds" | "servers" | "logs" | "crashes" | "settings";
+
+type ModFilter = "all" | "updates" | "disabled";
 
 type LogLevel = "error" | "warn" | "info";
 
@@ -48,6 +57,19 @@ function logLevelOf(line: string): LogLevel {
   if (/\/(ERROR|FATAL)\]|\bERROR\b|\bFATAL\b|Exception/.test(line)) return "error";
   if (/\/WARN\]|\bWARN(?:ING)?\b/.test(line)) return "warn";
   return "info";
+}
+
+/** "sodium-fabric-0.5.8.jar" → "sodium-fabric": the part of a mod file name
+ *  that stays stable across versions. Mirrors the backend helper so a kept
+ *  backup can be matched to the installed file. */
+function modKey(fileName: string): string {
+  const stem = fileName.replace(/\.disabled$/, "").replace(/\.jar$/, "");
+  const out: string[] = [];
+  for (const part of stem.split(/[-_+]/)) {
+    if (/^\d/.test(part)) break;
+    out.push(part);
+  }
+  return out.join("-").toLowerCase();
 }
 
 /** Wraps case-insensitive matches of `q` (already lowercased) in <mark>. */
@@ -71,6 +93,184 @@ function highlightLog(line: string, q: string): ReactNode {
   return out;
 }
 
+/**
+ * Crash diagnostics. Minecraft writes `crash-reports/*.txt` on every hard
+ * crash and nobody reads them — this surfaces the newest one, names the mods
+ * that appear in the stack trace and offers to switch them off right there.
+ */
+function CrashesTab({
+  id,
+  contentFolder,
+  onModsChanged,
+}: {
+  id: string;
+  contentFolder: api.ContentFolder;
+  onModsChanged: () => void;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useStore();
+  const [reports, setReports] = useState<api.CrashReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openFile, setOpenFile] = useState<string | null>(null);
+  const [detail, setDetail] = useState<api.CrashReportDetail | null>(null);
+  const [disabling, setDisabling] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .listCrashReports(id)
+      .then((list) => {
+        if (cancelled) return;
+        setReports(list);
+        // Open the newest report right away — that is why people come here.
+        if (list[0]) setOpenFile(list[0].file);
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!openFile) return;
+    let cancelled = false;
+    setDetail(null);
+    api
+      .readCrashReport(id, openFile)
+      .then((d) => !cancelled && setDetail(d))
+      .catch((e) => !cancelled && toast("error", errorText(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [id, openFile, toast]);
+
+  const disableMod = async (fileName: string) => {
+    setDisabling(fileName);
+    try {
+      await api.toggleMod(id, fileName, false, contentFolder);
+      api.invalidateEnrich(id);
+      onModsChanged();
+      toast("success", t("tools.crashDisable"));
+    } catch (e) {
+      toast("error", errorText(e));
+    } finally {
+      setDisabling(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="card flex items-center justify-center gap-2 py-12 text-t3">
+        <Spinner /> {t("common.loading")}
+      </div>
+    );
+  }
+  if (reports.length === 0) {
+    return (
+      <div className="card flex flex-col items-center gap-2 py-14 text-center text-t3">
+        <TriangleAlert className="size-7 opacity-40" />
+        {t("tools.crashEmpty")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 pb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1">
+          {reports.slice(0, 8).map((r) => (
+            <button
+              key={r.file}
+              onClick={() => setOpenFile(r.file)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                openFile === r.file
+                  ? "tab-active"
+                  : "text-t3 hover:bg-accent-soft hover:text-t1"
+              }`}
+            >
+              {new Date(r.modifiedMs).toLocaleString()}
+            </button>
+          ))}
+        </div>
+        <button
+          className="btn-secondary ml-auto !py-2"
+          onClick={() => api.openInstanceFolder(id).catch(() => {})}
+        >
+          <FolderOpen className="size-3.5" /> {t("tools.crashOpenFolder")}
+        </button>
+      </div>
+
+      {!detail ? (
+        <div className="card flex items-center justify-center gap-2 py-10 text-t3">
+          <Spinner /> {t("common.loading")}
+        </div>
+      ) : (
+        <>
+          <div className="card card-action py-4 pl-5 pr-4">
+            <div className="flex items-start gap-3">
+              <TriangleAlert className="mt-0.5 size-5 shrink-0 text-danger" />
+              <div className="min-w-0 flex-1">
+                <div className="break-words text-sm font-medium text-t1">
+                  {detail.summary || t("tools.crashTitle")}
+                </div>
+                {detail.suspects.length > 0 && (
+                  <>
+                    <div className="mt-3 text-xs font-medium text-t2">
+                      {t("tools.crashSuspects")}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {detail.suspects.map((s) => (
+                        <span
+                          key={s}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-bg-soft px-2 py-1 text-xs text-t2"
+                        >
+                          <Puzzle className="size-3" />
+                          <span className="max-w-56 truncate">{s}</span>
+                          <button
+                            className="text-t3 transition-colors hover:text-danger cursor-pointer"
+                            title={t("tools.crashDisable")}
+                            disabled={disabling === s}
+                            onClick={() => disableMod(s)}
+                          >
+                            {disabling === s ? (
+                              <Spinner className="size-3" />
+                            ) : (
+                              <Square className="size-3" />
+                            )}
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                className="btn-secondary shrink-0 !py-2"
+                onClick={() => {
+                  navigator.clipboard
+                    .writeText(detail.text)
+                    .then(() => toast("success", t("tools.crashCopied")))
+                    .catch(() => {});
+                }}
+              >
+                <Copy className="size-3.5" /> {t("tools.crashCopy")}
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="min-h-0 flex-1 overflow-auto rounded-2xl border border-stroke p-4 font-mono text-xs leading-relaxed text-slate-300 select-text"
+            style={{ background: "var(--console-bg)", maxHeight: "calc(100vh - 430px)" }}
+          >
+            <pre className="whitespace-pre-wrap break-words">{detail.text}</pre>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function InstancePage({
   id,
   navigate,
@@ -86,6 +286,7 @@ export function InstancePage({
   const [tab, setTab] = useState<Tab>("mods");
   const [packUpdate, setPackUpdate] = useState<api.ModpackUpdate | null>(null);
   const [updatingPack, setUpdatingPack] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [mods, setMods] = useState<ModFile[]>([]);
   const [modsLoading, setModsLoading] = useState(false);
   const [modInfo, setModInfo] = useState<Record<string, api.ModInfo>>({});
@@ -97,10 +298,18 @@ export function InstancePage({
   const [logSearch, setLogSearch] = useState("");
   const [logLevel, setLogLevel] = useState<"all" | "warn" | "error">("all");
   const atBottomRef = useRef(true);
+  const [modSearch, setModSearch] = useState("");
+  const [modFilter, setModFilter] = useState<ModFilter>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [backups, setBackups] = useState<Record<string, api.ModBackup>>({});
 
   const busy =
     status && ["preparing", "installing", "launching"].includes(status.state);
   const running = status?.state === "running";
+  const progress = status?.progress;
+  // Hook order matters: this must run before the early "instance not found".
+  const transfer = useTransferStats(progress?.current ?? 0, progress?.total ?? 0);
 
   // Filtering/classifying up to 600 log lines is not free — recompute only
   // when new lines arrive (logsVersion) or the filters change, not on every
@@ -196,6 +405,84 @@ export function InstancePage({
     (m) => modInfo[m.fileName]?.updateVersionId,
   );
 
+  // Kept previous versions, so a bad update can be undone from the list.
+  useEffect(() => {
+    if (contentFolder !== "mods") return;
+    let cancelled = false;
+    api
+      .listModBackups(id)
+      .then((list) => {
+        if (cancelled) return;
+        const map: Record<string, api.ModBackup> = {};
+        for (const b of list) map[modKey(b.fileName)] = b;
+        setBackups(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id, contentFolder, mods]);
+
+  const rollback = async (fileName: string) => {
+    try {
+      await api.rollbackMod(id, fileName);
+      api.invalidateEnrich(id);
+      await loadMods(true);
+      toast("success", t("tools.rollbackDone"));
+    } catch (e) {
+      toast("error", errorText(e));
+    }
+  };
+
+  // Visible list: search + filter. Selection is keyed by file name.
+  const visibleMods = useMemo(() => {
+    const q = modSearch.trim().toLowerCase();
+    return mods.filter((m) => {
+      if (modFilter === "updates" && !modInfo[m.fileName]?.updateVersionId) return false;
+      if (modFilter === "disabled" && m.enabled) return false;
+      if (!q) return true;
+      const title = modInfo[m.fileName]?.title ?? "";
+      return (
+        m.displayName.toLowerCase().includes(q) ||
+        title.toLowerCase().includes(q)
+      );
+    });
+  }, [mods, modInfo, modSearch, modFilter]);
+
+  const toggleSelected = (fileName: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(fileName) ? next.delete(fileName) : next.add(fileName);
+      return next;
+    });
+  };
+
+  /** Applies an action to every selected mod, then refreshes once. */
+  const bulkAction = async (action: "enable" | "disable" | "delete") => {
+    const targets = mods.filter((m) => selected.has(m.fileName));
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    let failed = 0;
+    for (const mod of targets) {
+      try {
+        if (action === "delete") {
+          await api.deleteMod(id, mod.fileName, contentFolder);
+        } else {
+          const enabled = action === "enable";
+          if (mod.enabled === enabled) continue;
+          await api.toggleMod(id, mod.fileName, enabled, contentFolder);
+        }
+      } catch {
+        failed++;
+      }
+    }
+    setSelected(new Set());
+    api.invalidateEnrich(id);
+    await loadMods(true);
+    setBulkBusy(false);
+    if (failed) toast("error", errorText(`${failed}`));
+  };
+
   const updateAllMods = async () => {
     const targets = updatableMods.map((m) => ({
       fileName: m.fileName,
@@ -245,6 +532,13 @@ export function InstancePage({
 
   useEffect(() => {
     loadMods();
+  }, [loadMods]);
+
+  // Files dropped on the window are installed by App; refresh when that lands.
+  useEffect(() => {
+    const refresh = () => loadMods(true);
+    window.addEventListener("nimbus:mods-changed", refresh);
+    return () => window.removeEventListener("nimbus:mods-changed", refresh);
   }, [loadMods]);
 
   // Check for a newer modpack version (only for Modrinth modpack instances).
@@ -373,7 +667,6 @@ export function InstancePage({
     }
   };
 
-  const progress = status?.progress;
   const supportsMods = instance.loader !== "vanilla";
 
   return (
@@ -386,32 +679,35 @@ export function InstancePage({
       </button>
 
       <div className="card relative mb-3 overflow-hidden p-4">
-        {(() => {
-          const icon = instanceIconSrc(instance);
-          return icon ? (
-            <>
-              <img src={icon} alt="" className="banner-img !opacity-20 dark:!opacity-15" />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(180deg, transparent 0%, var(--card) 90%)",
-                }}
-              />
-            </>
-          ) : null;
-        })()}
+        {/* Give the page a face: the instance's own art, or its loader colour
+            when it has none — the plain grey header read as a form. */}
+        <div className="absolute inset-0" aria-hidden>
+          {instanceIconSrc(instance) ? (
+            <img
+              src={instanceIconSrc(instance)!}
+              alt=""
+              className="banner-img !opacity-25 dark:!opacity-20"
+            />
+          ) : (
+            <div
+              className="size-full opacity-[0.15] dark:opacity-25"
+              style={{ background: LOADER_GRADIENTS[instance.loader] }}
+            />
+          )}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(105deg, var(--card) 30%, transparent 125%)",
+            }}
+          />
+        </div>
         <div className="relative flex flex-wrap items-center gap-3">
-          {(() => {
-            const icon = instanceIconSrc(instance);
-            return icon ? (
-              <img src={icon} alt="" className="size-16 rounded-2xl object-cover shadow-lg" />
-            ) : (
-              <div className="flex size-16 items-center justify-center rounded-2xl bg-accent-soft text-accent-text">
-                <Box className="size-8" />
-              </div>
-            );
-          })()}
+          <InstanceIcon
+            instance={instance}
+            size={64}
+            rounded="rounded-2xl"
+            className="shadow-lg"
+          />
           <div className="min-w-40 flex-1">
             <h1 className="truncate text-xl font-semibold tracking-tight">
               {instance.name}
@@ -469,12 +765,20 @@ export function InstancePage({
 
         {busy && progress && (
           <div className="relative mt-4">
-            <div className="mb-1.5 flex justify-between text-xs text-t3">
-              <span className="truncate pr-4">{progress.path.split(/[\\/]/).pop()}</span>
-              <span>
+            <div className="mb-1.5 flex justify-between gap-4 text-xs text-t3">
+              <span className="truncate">{progress.path.split(/[\\/]/).pop()}</span>
+              <span className="shrink-0 tabular-nums">
                 {progress.kind === "multiple"
                   ? `${progress.current} / ${progress.total}`
                   : `${formatBytes(progress.current)} / ${formatBytes(progress.total)}`}
+                {transfer && progress.kind !== "multiple" && (
+                  <>
+                    {" · "}
+                    {t("tools.speed", { speed: formatBytes(transfer.speed) })}
+                    {" · "}
+                    {t("tools.eta", { time: formatDuration(transfer.etaSec) })}
+                  </>
+                )}
               </span>
             </div>
             <ProgressBar value={progress.current / Math.max(1, progress.total)} />
@@ -490,11 +794,42 @@ export function InstancePage({
               {t("instance.packUpdateAvailable", { v: packUpdate.versionNumber })}
             </span>
           </div>
-          <button className="btn-primary" disabled={updatingPack} onClick={doUpdatePack}>
+          <button
+            className="btn-primary"
+            disabled={updatingPack}
+            onClick={() => setShowChangelog(true)}
+          >
             {updatingPack && <Spinner />}
             {t("instance.packUpdateBtn")}
           </button>
         </div>
+      )}
+
+      {/* What the update actually changes — people fear breaking their world. */}
+      {showChangelog && packUpdate && (
+        <Modal
+          title={t("tools.changelogTitle", { v: packUpdate.versionNumber })}
+          onClose={() => setShowChangelog(false)}
+        >
+          <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-t2 select-text">
+            {packUpdate.changelog || t("tools.changelogEmpty")}
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button className="btn-secondary" onClick={() => setShowChangelog(false)}>
+              {t("common.cancel")}
+            </button>
+            <button
+              className="btn-primary"
+              disabled={updatingPack}
+              onClick={() => {
+                setShowChangelog(false);
+                doUpdatePack();
+              }}
+            >
+              <ArrowDownToLine className="size-4" /> {t("tools.updateNow")}
+            </button>
+          </div>
+        </Modal>
       )}
 
       <div className="mb-4 flex gap-1">
@@ -504,6 +839,7 @@ export function InstancePage({
             ["worlds", t("instance.worlds")],
             ["servers", t("instance.servers")],
             ["logs", t("instance.logs")],
+            ["crashes", t("tools.crashTitle")],
             ["settings", t("instance.manage")],
           ] as [Tab, string][]
         ).map(([tabKey, label]) => (
@@ -525,7 +861,100 @@ export function InstancePage({
       <div className="min-h-0 flex-1">
         {tab === "mods" && (
           <div className="flex flex-col gap-3">
+            {/* Search + filters: a modpack can hold hundreds of mods. */}
+            {mods.length > 6 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-48 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-t3" />
+                  <input
+                    value={modSearch}
+                    onChange={(e) => setModSearch(e.target.value)}
+                    placeholder={t("tools.modSearch")}
+                    className="input-base !py-2 pl-9"
+                  />
+                </div>
+                <div className="flex shrink-0 overflow-hidden rounded-lg border border-stroke-strong">
+                  {(
+                    [
+                      ["all", t("tools.filterAll"), mods.length],
+                      ["updates", t("tools.filterUpdates"), updatableMods.length],
+                      [
+                        "disabled",
+                        t("tools.filterDisabled"),
+                        mods.filter((m) => !m.enabled).length,
+                      ],
+                    ] as [ModFilter, string, number][]
+                  ).map(([key, label, count]) => (
+                    <button
+                      key={key}
+                      onClick={() => setModFilter(key)}
+                      className={`px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                        modFilter === key
+                          ? "bg-accent text-accent-fg"
+                          : "text-t3 hover:bg-accent-soft hover:text-t1"
+                      }`}
+                    >
+                      {label} <span className="opacity-70">{count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bulk actions appear only with a selection. */}
+            {selected.size > 0 && (
+              <div className="card card-action flex flex-wrap items-center gap-2 py-2.5 pl-4 pr-3">
+                <span className="mr-auto text-sm font-medium text-t1">
+                  {t("tools.selected", { n: selected.size })}
+                </span>
+                <button
+                  className="btn-ghost !py-1.5"
+                  disabled={bulkBusy}
+                  onClick={() => bulkAction("enable")}
+                >
+                  {t("tools.enableSel")}
+                </button>
+                <button
+                  className="btn-ghost !py-1.5"
+                  disabled={bulkBusy}
+                  onClick={() => bulkAction("disable")}
+                >
+                  {t("tools.disableSel")}
+                </button>
+                <button
+                  className="btn-ghost !py-1.5 hover:!bg-danger-soft hover:!text-danger"
+                  disabled={bulkBusy}
+                  onClick={() => bulkAction("delete")}
+                >
+                  {bulkBusy ? <Spinner className="size-3.5" /> : <Trash2 className="size-3.5" />}
+                  {t("tools.deleteSel")}
+                </button>
+                <button
+                  className="btn-ghost !py-1.5"
+                  onClick={() => setSelected(new Set())}
+                >
+                  {t("tools.clearSel")}
+                </button>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
+              {visibleMods.length > 1 && (
+                <button
+                  className="btn-ghost mr-auto"
+                  onClick={() =>
+                    setSelected(
+                      selected.size === visibleMods.length
+                        ? new Set()
+                        : new Set(visibleMods.map((m) => m.fileName)),
+                    )
+                  }
+                >
+                  {selected.size === visibleMods.length
+                    ? t("tools.clearSel")
+                    : t("tools.selectAll")}
+                </button>
+              )}
               {updatableMods.length > 0 && (
                 <button
                   className="btn-secondary"
@@ -562,11 +991,17 @@ export function InstancePage({
               <div className="card py-12 text-center text-t3">
                 {t("instance.noMods")}
               </div>
+            ) : visibleMods.length === 0 ? (
+              <div className="card py-12 text-center text-t3">
+                {t("instance.logNoMatch")}
+              </div>
             ) : (
               <div className="card divide-y divide-stroke">
-                {mods.map((mod) => {
+                {visibleMods.map((mod) => {
                   const info = modInfo[mod.fileName];
                   const updating = updatingMods.has(mod.fileName);
+                  const backup = backups[modKey(mod.fileName)];
+                  const isSelected = selected.has(mod.fileName);
                   const openProject = info?.projectId
                     ? () =>
                         navigate({
@@ -581,11 +1016,20 @@ export function InstancePage({
                       key={mod.fileName}
                       onClick={openProject}
                       className={`flex items-center gap-3 px-4 py-3 ${
+                        isSelected ? "bg-accent-soft" : ""
+                      } ${
                         openProject
                           ? "cursor-pointer transition-colors hover:bg-bg-soft"
                           : ""
                       }`}
                     >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleSelected(mod.fileName)}
+                        className="size-4 shrink-0 cursor-pointer accent-[var(--accent)]"
+                      />
                       <span onClick={(e) => e.stopPropagation()}>
                         <Toggle
                           checked={mod.enabled}
@@ -667,6 +1111,18 @@ export function InstancePage({
                           {info.updateVersionNumber}
                         </button>
                       )}
+                      {backup && (
+                        <button
+                          className="btn-ghost !p-2"
+                          title={t("tools.rollbackHint")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            rollback(backup.fileName);
+                          }}
+                        >
+                          <Undo2 className="size-4" />
+                        </button>
+                      )}
                       <button
                         className="btn-ghost !p-2 hover:!bg-danger-soft hover:!text-danger"
                         title={t("common.delete")}
@@ -693,6 +1149,13 @@ export function InstancePage({
 
         {tab === "worlds" && <WorldsTab id={id} />}
         {tab === "servers" && <ServersTab id={id} />}
+        {tab === "crashes" && (
+          <CrashesTab
+            id={id}
+            contentFolder={contentFolder}
+            onModsChanged={() => loadMods(true)}
+          />
+        )}
 
         {tab === "logs" &&
           (() => {
@@ -804,6 +1267,25 @@ export function InstancePage({
                 btn={
                   <button className="btn-secondary" onClick={doSetIcon}>
                     <Image className="size-4" /> {t("instance.iconBtn")}
+                  </button>
+                }
+              />
+              <ManageRow
+                title={t("tools.shortcutTitle")}
+                desc={t("tools.shortcutDesc")}
+                btn={
+                  <button
+                    className="btn-secondary"
+                    onClick={async () => {
+                      try {
+                        await api.createDesktopShortcut(id);
+                        toast("success", t("tools.shortcutDone"));
+                      } catch (e) {
+                        toast("error", errorText(e));
+                      }
+                    }}
+                  >
+                    <ExternalLink className="size-4" /> {t("tools.shortcutBtn")}
                   </button>
                 }
               />

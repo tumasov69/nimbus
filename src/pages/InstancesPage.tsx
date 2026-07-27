@@ -4,6 +4,8 @@ import {
   Folder,
   FolderInput,
   FolderOpen,
+  LayoutGrid,
+  List,
   MoreVertical,
   Package,
   Pencil,
@@ -13,18 +15,21 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import {
   Dropdown,
   Field,
+  InstanceIcon,
   LoaderBadge,
+  LOADER_GRADIENTS,
   LOADER_LABELS,
   Modal,
   ProgressBar,
   SelectWrap,
   Spinner,
+  Toggle,
   formatPlaytime,
   formatRelativeDate,
   instanceIconSrc,
@@ -56,15 +61,6 @@ function useStatusLabel() {
   };
 }
 
-// Loader-flavoured fallback gradient for the cover banner.
-const LOADER_GRADIENTS: Record<string, string> = {
-  vanilla: "linear-gradient(135deg, #10b981 0%, #0ea5e9 120%)",
-  fabric: "linear-gradient(135deg, #f59e0b 0%, #f97316 120%)",
-  quilt: "linear-gradient(135deg, #d946ef 0%, #8b5cf6 120%)",
-  forge: "linear-gradient(135deg, #64748b 0%, #334155 120%)",
-  neoforge: "linear-gradient(135deg, #f97316 0%, #ef4444 120%)",
-};
-
 // Memoized: statuses tick several times a second during installs, and without
 // memo every tick re-renders the whole grid. Handlers receive the instance so
 // the parent can pass stable useCallback references.
@@ -89,6 +85,7 @@ const InstanceCard = memo(function InstanceCard({
 }) {
   const { t } = useTranslation();
   const statusLabel = useStatusLabel();
+  const menuRef = useRef<HTMLButtonElement>(null);
   const busy =
     status &&
     ["preparing", "installing", "launching"].includes(status.state);
@@ -106,6 +103,11 @@ const InstanceCard = memo(function InstanceCard({
   return (
     <div
       onClick={() => onOpen(instance)}
+      // Right-click is what people try first on a card; mirror the ⋮ menu.
+      onContextMenu={(e) => {
+        e.preventDefault();
+        menuRef.current?.click();
+      }}
       className="card group cursor-pointer overflow-hidden !p-0 transition-all hover:-translate-y-0.5"
     >
       {/* Cover banner: blurred icon backdrop (or loader gradient) */}
@@ -147,7 +149,10 @@ const InstanceCard = memo(function InstanceCard({
         >
           <Dropdown
             trigger={
-              <button className="flex size-8 items-center justify-center rounded-lg bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/55 cursor-pointer">
+              <button
+                ref={menuRef}
+                className="flex size-8 items-center justify-center rounded-lg bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/55 cursor-pointer"
+              >
                 <MoreVertical className="size-4" />
               </button>
             }
@@ -181,13 +186,7 @@ const InstanceCard = memo(function InstanceCard({
       {/* Body: floating icon + name + meta */}
       <div className="relative px-3.5 pb-3.5">
         <div className="-mt-7 mb-1.5 inline-block rounded-xl border-[3px] border-card bg-card shadow-sm">
-          {icon ? (
-            <img src={icon} alt="" className="size-12 rounded-lg object-cover" />
-          ) : (
-            <div className="flex size-12 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-              <Box className="size-6" />
-            </div>
-          )}
+          <InstanceIcon instance={instance} size={48} />
         </div>
 
         <div className="truncate text-[15px] font-semibold tracking-tight text-t1">
@@ -243,6 +242,7 @@ export function CreateInstanceModal({
   const [loaderVersion, setLoaderVersion] = useState("");
   const [loadingLoaders, setLoadingLoaders] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [withFabricApi, setWithFabricApi] = useState(true);
 
   useEffect(() => {
     api
@@ -297,6 +297,23 @@ export function CreateInstanceModal({
         loader,
         loader === "vanilla" ? null : loaderVersion,
       );
+      // Fabric/Quilt mods almost universally depend on Fabric API; installing
+      // it up front saves a confusing "mod does nothing" first run.
+      if (withFabricApi && (loader === "fabric" || loader === "quilt")) {
+        try {
+          const versions = await api.modrinthGetVersions({
+            projectId: "fabric-api",
+            mcVersion,
+            loader,
+            filterLoader: true,
+          });
+          if (versions[0]) {
+            await api.modrinthInstallVersion(instance.id, versions[0].id, "mod");
+          }
+        } catch {
+          // Not fatal — the instance itself was created fine.
+        }
+      }
       onCreated(instance);
       toast("success", t("instances.created", { name: instance.name }));
       onClose();
@@ -407,6 +424,18 @@ export function CreateInstanceModal({
               </SelectWrap>
             )}
           </Field>
+        )}
+
+        {(loader === "fabric" || loader === "quilt") && (
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-stroke p-3">
+            <Toggle checked={withFabricApi} onChange={setWithFabricApi} />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-t1">
+                {t("tools.fabricApiTitle")}
+              </span>
+              <span className="block text-xs text-t3">{t("tools.fabricApiDesc")}</span>
+            </span>
+          </label>
         )}
 
         <div className="mt-2 flex justify-end gap-2">
@@ -599,6 +628,9 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
   const [filter, setFilter] = useState<InstanceFilter>("all");
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const [sort, setSort] = useState<InstanceSort>("recent");
+  const [view, setView] = useState<"grid" | "list">(() =>
+    localStorage.getItem("nimbus.instancesView") === "list" ? "list" : "grid",
+  );
 
   const folders = useMemo(() => {
     const set = new Set<string>();
@@ -751,6 +783,31 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
                 <option value="created">{t("instances.sortCreated")}</option>
               </select>
             </SelectWrap>
+            {/* Grid for browsing, list for a large collection. */}
+            <div className="flex shrink-0 overflow-hidden rounded-lg border border-stroke-strong">
+              {(
+                [
+                  ["grid", t("tools.viewGrid"), LayoutGrid],
+                  ["list", t("tools.viewList"), List],
+                ] as ["grid" | "list", string, typeof LayoutGrid][]
+              ).map(([key, label, Icon]) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setView(key);
+                    localStorage.setItem("nimbus.instancesView", key);
+                  }}
+                  title={label}
+                  className={`px-2.5 py-2 transition-colors cursor-pointer ${
+                    view === key
+                      ? "bg-accent text-accent-fg"
+                      : "text-t3 hover:bg-accent-soft hover:text-t1"
+                  }`}
+                >
+                  <Icon className="size-4" />
+                </button>
+              ))}
+            </div>
           </div>
 
           {folders.length > 0 && (
@@ -787,7 +844,7 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
               <Package className="size-7 opacity-50" />
               {t("instances.nothingFound")}
             </div>
-          ) : (
+          ) : view === "grid" ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-4">
               {visible.map((inst) => (
                 <InstanceCard
@@ -802,6 +859,86 @@ export function InstancesPage({ navigate }: { navigate: (r: Route) => void }) {
                   onMoveToFolder={moveCard}
                 />
               ))}
+            </div>
+          ) : (
+            /* Compact list: a dense view for large collections. */
+            <div className="card divide-y divide-stroke">
+              {visible.map((inst) => {
+                const status = statuses[inst.id];
+                const running = status?.state === "running";
+                const cardBusy =
+                  status &&
+                  ["preparing", "installing", "launching"].includes(status.state);
+                return (
+                  <div
+                    key={inst.id}
+                    onClick={() => openCard(inst)}
+                    className="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-bg-soft"
+                  >
+                    <InstanceIcon instance={inst} size={32} />
+                    <span className="min-w-0 flex-[2] truncate text-sm font-medium text-t1">
+                      {inst.name}
+                    </span>
+                    <span className="hidden w-24 shrink-0 sm:block">
+                      <LoaderBadge loader={inst.loader} />
+                    </span>
+                    <span className="hidden w-20 shrink-0 text-xs text-t3 sm:block">
+                      {inst.mcVersion}
+                    </span>
+                    <span className="hidden w-28 shrink-0 text-xs text-t3 md:block">
+                      {formatRelativeDate(inst.lastPlayed)}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        running ? stopCard(inst) : playCard(inst);
+                      }}
+                      disabled={cardBusy}
+                      className={`shrink-0 ${running ? "btn-danger" : "btn-secondary"} !py-1.5`}
+                    >
+                      {cardBusy ? (
+                        <Spinner className="size-3.5" />
+                      ) : running ? (
+                        <Square className="size-3.5 fill-current" />
+                      ) : (
+                        <Play className="size-3.5 fill-current" />
+                      )}
+                    </button>
+                    <span onClick={(e) => e.stopPropagation()} className="shrink-0">
+                      <Dropdown
+                        trigger={
+                          <button className="btn-ghost !p-2">
+                            <MoreVertical className="size-4" />
+                          </button>
+                        }
+                        items={[
+                          {
+                            label: t("instances.openFolder"),
+                            icon: <FolderOpen className="size-4" />,
+                            onClick: () => api.openInstanceFolder(inst.id),
+                          },
+                          {
+                            label: t("common.rename"),
+                            icon: <Pencil className="size-4" />,
+                            onClick: () => renameCard(inst),
+                          },
+                          {
+                            label: t("instances.moveToFolder"),
+                            icon: <FolderInput className="size-4" />,
+                            onClick: () => moveCard(inst),
+                          },
+                          {
+                            label: t("common.delete"),
+                            icon: <Trash2 className="size-4" />,
+                            danger: true,
+                            onClick: () => deleteCard(inst),
+                          },
+                        ]}
+                      />
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>

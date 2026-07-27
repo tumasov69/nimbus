@@ -29,6 +29,23 @@ pub struct AppState {
     pub modrinth_tags: Mutex<Option<serde_json::Value>>,
     pub translation_cache: Mutex<HashMap<String, String>>,
     pub discord: Mutex<Option<discord_rich_presence::DiscordIpcClient>>,
+    /// Instance id passed as `--launch <id>` on the command line (desktop
+    /// shortcuts), consumed once by the frontend after it mounts.
+    pub pending_launch: Mutex<Option<String>>,
+}
+
+/// Extracts the instance id from `--launch <id>` / `--launch=<id>`.
+pub fn parse_launch_arg<I: IntoIterator<Item = String>>(args: I) -> Option<String> {
+    let mut iter = args.into_iter();
+    while let Some(arg) = iter.next() {
+        if let Some(value) = arg.strip_prefix("--launch=") {
+            return Some(value.to_string());
+        }
+        if arg == "--launch" {
+            return iter.next();
+        }
+    }
+    None
 }
 
 impl AppState {
@@ -74,6 +91,7 @@ impl AppState {
             modrinth_tags: Mutex::new(None),
             translation_cache: Mutex::new(HashMap::new()),
             discord: Mutex::new(None),
+            pending_launch: Mutex::new(parse_launch_arg(std::env::args())),
         }
     }
 

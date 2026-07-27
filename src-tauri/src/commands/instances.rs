@@ -325,6 +325,43 @@ pub async fn toggle_mod(
     Ok(())
 }
 
+/// Copies local files (dragged onto the window, or picked from disk) into a
+/// content folder of an instance. Returns the names that were installed.
+#[tauri::command]
+pub async fn install_local_mods(
+    state: State<'_, AppState>,
+    id: String,
+    paths: Vec<String>,
+    folder: Option<String>,
+) -> CmdResult<Vec<String>> {
+    let dir = state
+        .instance_dir(&id)?
+        .join(content_folder(folder.as_deref())?);
+    std::fs::create_dir_all(&dir).map_err(err_to_string)?;
+
+    let mut installed = Vec::new();
+    for path in paths {
+        let source = std::path::PathBuf::from(&path);
+        let Some(file_name) = source.file_name().map(|n| n.to_string_lossy().into_owned())
+        else {
+            continue;
+        };
+        let lower = file_name.to_lowercase();
+        // Only real content files; anything else is a mistake worth reporting.
+        if !(lower.ends_with(".jar") || lower.ends_with(".zip")) {
+            return Err(format!("Не мод и не архив: {file_name}"));
+        }
+        if !source.is_file() {
+            continue;
+        }
+        tokio::fs::copy(&source, dir.join(&file_name))
+            .await
+            .map_err(err_to_string)?;
+        installed.push(file_name);
+    }
+    Ok(installed)
+}
+
 #[tauri::command]
 pub async fn delete_mod(
     state: State<'_, AppState>,

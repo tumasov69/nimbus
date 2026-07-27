@@ -49,6 +49,13 @@ pub async fn set_window_theme(app: tauri::AppHandle, theme: String) -> CmdResult
     Ok(())
 }
 
+/// Returns (once) the instance id this process was started with via
+/// `--launch <id>`, so the UI can play it straight away.
+#[tauri::command]
+pub async fn take_pending_launch(state: State<'_, AppState>) -> CmdResult<Option<String>> {
+    Ok(state.pending_launch.lock().await.take())
+}
+
 #[tauri::command]
 pub async fn open_data_folder(state: State<'_, AppState>) -> CmdResult<()> {
     let dir = state.data_dir.clone();

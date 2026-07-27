@@ -14,10 +14,16 @@ pub fn run() {
     tauri::Builder::default()
         // Must be the first plugin: a second launcher copy would race on
         // instances.json/accounts.json. Focus the existing window instead.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.unminimize();
                 let _ = win.set_focus();
+            }
+            // A desktop shortcut for an instance re-runs the exe with
+            // `--launch <id>`; forward it to the already-running window.
+            if let Some(id) = crate::state::parse_launch_arg(args) {
+                use tauri::Emitter;
+                let _ = app.emit("launch-request", id);
             }
         }))
         // Remember only the maximized state — NOT position or size. The window
@@ -116,6 +122,18 @@ pub fn run() {
             commands::modrinth::modrinth_check_modpack_update,
             commands::modrinth::modrinth_update_modpack,
             commands::translate::translate_texts,
+            commands::tools::list_crash_reports,
+            commands::tools::read_crash_report,
+            commands::tools::get_disk_usage,
+            commands::tools::clear_cache,
+            commands::tools::cleanup_unused_versions,
+            commands::tools::create_desktop_shortcut,
+            commands::tools::scan_external_launchers,
+            commands::tools::import_external_instance,
+            commands::settings::take_pending_launch,
+            commands::instances::install_local_mods,
+            commands::modrinth::rollback_mod,
+            commands::modrinth::list_mod_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

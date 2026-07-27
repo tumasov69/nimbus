@@ -15,6 +15,59 @@ export function instanceIconSrc(instance: Instance): string | null {
   return instance.iconUrl ?? null;
 }
 
+/** Loader-flavoured gradients — the visual identity of an instance that has
+ *  no icon of its own. Shared by every surface that lists instances. */
+export const LOADER_GRADIENTS: Record<LoaderKind, string> = {
+  vanilla: "linear-gradient(135deg, #10b981 0%, #0ea5e9 120%)",
+  fabric: "linear-gradient(135deg, #f59e0b 0%, #f97316 120%)",
+  quilt: "linear-gradient(135deg, #d946ef 0%, #8b5cf6 120%)",
+  forge: "linear-gradient(135deg, #64748b 0%, #334155 120%)",
+  neoforge: "linear-gradient(135deg, #f97316 0%, #ef4444 120%)",
+};
+
+/**
+ * Instance avatar: the custom/remote icon when there is one, otherwise a
+ * loader-coloured tile with the first letter of the name. A grey placeholder
+ * cube made every instance look the same — colour plus initial makes them
+ * recognizable before the name is even read.
+ */
+export function InstanceIcon({
+  instance,
+  size = 40,
+  rounded = "rounded-lg",
+  className = "",
+}: {
+  instance: Instance;
+  size?: number;
+  rounded?: string;
+  className?: string;
+}) {
+  const src = instanceIconSrc(instance);
+  const style = { width: size, height: size };
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        style={style}
+        className={`shrink-0 object-cover bg-bg-soft ${rounded} ${className}`}
+      />
+    );
+  }
+  const letter = instance.name.trim().charAt(0).toUpperCase() || "?";
+  return (
+    <div
+      style={{ ...style, background: LOADER_GRADIENTS[instance.loader] }}
+      className={`flex shrink-0 items-center justify-center font-semibold text-white ${rounded} ${className}`}
+      aria-hidden
+    >
+      <span style={{ fontSize: Math.round(size * 0.42) }}>{letter}</span>
+    </div>
+  );
+}
+
 /** Lightweight loading placeholder. */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
@@ -265,6 +318,56 @@ export function Toasts() {
     </div>,
     document.body,
   );
+}
+
+/**
+ * Turns a stream of progress samples into a human "12.4 MB/s · ~40 s left".
+ * Rate is measured over a short window so it reacts to the real connection
+ * instead of averaging the whole download.
+ */
+export function useTransferStats(current: number, total: number) {
+  const samples = useRef<{ at: number; value: number }[]>([]);
+  const [stats, setStats] = useState<{ speed: number; etaSec: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (total <= 0 || current <= 0) {
+      samples.current = [];
+      setStats(null);
+      return;
+    }
+    const now = Date.now();
+    const list = samples.current;
+    list.push({ at: now, value: current });
+    // Keep ~5 seconds of history.
+    while (list.length > 2 && now - list[0].at > 5000) list.shift();
+
+    const first = list[0];
+    const seconds = (now - first.at) / 1000;
+    const delta = current - first.value;
+    if (seconds < 0.5 || delta <= 0) return;
+    const speed = delta / seconds;
+    setStats({ speed, etaSec: Math.max(0, (total - current) / speed) });
+  }, [current, total]);
+
+  // A restarted transfer must not inherit the previous one's history.
+  useEffect(() => {
+    samples.current = [];
+  }, [total]);
+
+  return stats;
+}
+
+/** "1 ч 05 мин" / "40 с" — compact duration for progress hints. */
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds)) return "";
+  const s = Math.round(seconds);
+  if (s < 60) return `${s} ${i18n.t("common.secShort")}`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} ${i18n.t("common.minShort")}`;
+  const h = Math.floor(m / 60);
+  return `${h} ${i18n.t("common.hourShort")} ${m % 60} ${i18n.t("common.minShort")}`;
 }
 
 export function formatBytes(bytes: number): string {

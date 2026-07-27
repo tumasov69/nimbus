@@ -186,6 +186,7 @@ export const exportMrpack = (instanceId: string, outputPath: string) =>
 export interface ModpackUpdate {
   versionId: string;
   versionNumber: string;
+  changelog?: string;
 }
 
 // Home + instance pages both poll this for every modpack instance on mount;
@@ -291,3 +292,83 @@ export const modrinthUpdateMod = (
   versionId: string,
 ) =>
   invoke<string>("modrinth_update_mod", { instanceId, fileName, versionId });
+
+// --- mod backups (rollback after a bad update) ---
+export interface ModBackup {
+  fileName: string;
+  sizeBytes: number;
+}
+export const listModBackups = (instanceId: string) =>
+  invoke<ModBackup[]>("list_mod_backups", { instanceId });
+export const rollbackMod = (instanceId: string, fileName: string) =>
+  invoke<string>("rollback_mod", { instanceId, fileName });
+
+// --- local files ---
+export const installLocalMods = (
+  id: string,
+  paths: string[],
+  folder: ContentFolder = "mods",
+) => invoke<string[]>("install_local_mods", { id, paths, folder });
+
+// --- crash diagnostics ---
+export interface CrashReport {
+  file: string;
+  modifiedMs: number;
+  sizeBytes: number;
+}
+export interface CrashReportDetail {
+  text: string;
+  summary: string;
+  suspects: string[];
+}
+export const listCrashReports = (id: string) =>
+  invoke<CrashReport[]>("list_crash_reports", { id });
+export const readCrashReport = (id: string, file: string) =>
+  invoke<CrashReportDetail>("read_crash_report", { id, file });
+
+// --- disk usage ---
+export interface InstanceUsage {
+  id: string;
+  name: string;
+  bytes: number;
+}
+export interface DiskUsage {
+  instances: InstanceUsage[];
+  gameBytes: number;
+  cacheBytes: number;
+  totalBytes: number;
+  unusedVersions: string[];
+  unusedVersionBytes: number;
+}
+export const getDiskUsage = () => invoke<DiskUsage>("get_disk_usage");
+export const clearCache = () => invoke<number>("clear_cache");
+export const cleanupUnusedVersions = () =>
+  invoke<number>("cleanup_unused_versions");
+
+// --- shortcuts & launch args ---
+export const createDesktopShortcut = (id: string) =>
+  invoke<string>("create_desktop_shortcut", { id });
+export const takePendingLaunch = () =>
+  invoke<string | null>("take_pending_launch");
+
+// --- migration from other launchers ---
+export interface ExternalInstance {
+  source: string;
+  name: string;
+  path: string;
+  mcVersion?: string | null;
+  loader?: LoaderKind | null;
+  loaderVersion?: string | null;
+  modsCount: number;
+  worldsCount: number;
+  sizeBytes: number;
+}
+export const scanExternalLaunchers = () =>
+  invoke<ExternalInstance[]>("scan_external_launchers");
+export const importExternalInstance = (params: {
+  path: string;
+  name: string;
+  mcVersion: string;
+  loader: LoaderKind;
+  loaderVersion: string | null;
+}) => invoke<Instance>("import_external_instance", { ...params });

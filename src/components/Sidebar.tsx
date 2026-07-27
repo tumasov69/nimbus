@@ -1,5 +1,6 @@
 import { getVersion } from "@tauri-apps/api/app";
 import {
+  ArrowDownToLine,
   Check,
   ChevronsUpDown,
   Compass,
@@ -15,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import { errorText, useStore } from "../store";
 import type { Route } from "../routes";
+import { ProgressBar, Spinner } from "./ui";
 
 const NAV = [
   { page: "home", key: "nav.home", icon: Home },
@@ -34,8 +36,35 @@ export function Sidebar({
   onOpenPalette: () => void;
 }) {
   const { t } = useTranslation();
-  const { accounts, refreshAccounts, toast } = useStore();
+  const {
+    accounts,
+    refreshAccounts,
+    toast,
+    instances,
+    statuses,
+    appUpdate,
+    updateInstalling,
+    forcedUpdate,
+    installAppUpdate,
+  } = useStore();
   const active = accounts.accounts.find((a) => a.id === accounts.active);
+
+  // Work in progress belongs in the chrome, not only on the page that started
+  // it: the sidebar is visible everywhere, and its lower half was empty.
+  const activeJob = (() => {
+    for (const [id, status] of Object.entries(statuses)) {
+      if (!["preparing", "installing", "launching"].includes(status.state)) continue;
+      const instance = instances.find((i) => i.id === id);
+      if (!instance) continue;
+      const value = status.packProgress
+        ? status.packProgress.current / Math.max(1, status.packProgress.total)
+        : status.progress
+          ? status.progress.current / Math.max(1, status.progress.total)
+          : null;
+      return { id, name: instance.name, state: status.state, value };
+    }
+    return null;
+  })();
   const [version, setVersion] = useState("");
   const [accOpen, setAccOpen] = useState(false);
   const accRef = useRef<HTMLDivElement>(null);
@@ -127,7 +156,53 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="mt-auto">
+      <div className="mt-auto flex flex-col gap-2">
+        {/* Live install/launch progress, visible from any page. */}
+        {activeJob && (
+          <button
+            onClick={() => navigate({ page: "instance", id: activeJob.id })}
+            className="card w-full p-3 text-left transition-all hover:bg-card-hover cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Spinner className="size-3.5 shrink-0 text-accent-text" />
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-t1">
+                {activeJob.name}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-t3">
+              {t(`status.${activeJob.state}`)}
+            </div>
+            {activeJob.value !== null && (
+              <ProgressBar value={activeJob.value} className="mt-2 !h-1" />
+            )}
+          </button>
+        )}
+
+        {/* Update prompt lives in the chrome instead of floating over content. */}
+        {appUpdate && !forcedUpdate && (
+          <button
+            onClick={installAppUpdate}
+            disabled={updateInstalling}
+            className="card card-action w-full py-2.5 pl-4 pr-3 text-left transition-all hover:bg-card-hover cursor-pointer disabled:opacity-60"
+          >
+            <div className="flex items-center gap-2">
+              {updateInstalling ? (
+                <Spinner className="size-3.5 shrink-0 text-accent-text" />
+              ) : (
+                <ArrowDownToLine className="size-3.5 shrink-0 text-accent-text" />
+              )}
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-t1">
+                {t("settings.updateAvailable", { v: appUpdate.version })}
+              </span>
+            </div>
+            <div className="mt-0.5 pl-5.5 text-[11px] text-t3">
+              {updateInstalling
+                ? t("settings.updateDownloading")
+                : t("settings.updateInstall")}
+            </div>
+          </button>
+        )}
+
         {active ? (
           <div ref={accRef} className="relative">
             {/* Upward-opening switcher menu (only with >1 account) */}

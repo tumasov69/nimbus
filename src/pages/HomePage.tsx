@@ -1,6 +1,7 @@
 import {
   ArrowDownToLine,
   Box,
+  Clock,
   Compass,
   Download,
   Package,
@@ -12,16 +13,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import {
+  InstanceIcon,
+  LOADER_GRADIENTS,
   LoaderBadge,
   ProgressBar,
   SelectWrap,
+  Skeleton,
   Spinner,
   formatDownloads,
+  formatPlaytime,
   formatRelativeDate,
   instanceIconSrc,
 } from "../components/ui";
 import type { Route } from "../routes";
-import { errorText, useStore } from "../store";
+import { errorText, useStore, type InstanceStatus } from "../store";
 import type { Instance, McVersion, SearchHit } from "../types";
 
 // Cache popular modpacks for the session so Home loads instantly on revisits.
@@ -49,6 +54,7 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   const [nick, setNick] = useState("");
   const [launching, setLaunching] = useState(false);
   const [popular, setPopular] = useState<SearchHit[]>(popularCache ?? []);
+  const [popularLoading, setPopularLoading] = useState(!popularCache);
   const [updates, setUpdates] = useState<UpdateEntry[]>([]);
 
   const activeAccount = accounts.accounts.find((a) => a.id === accounts.active);
@@ -123,7 +129,8 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
         popularCache = r.hits;
         setPopular(r.hits);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPopularLoading(false));
   }, []);
 
   useEffect(() => {
@@ -215,9 +222,68 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
 
   const progress = quickStatus?.progress;
 
+  // Who is looking at this screen decides what dominates it. A returning
+  // player wants the instance they were in — quick play is then a compact
+  // strip. A first-run user has nothing to continue, so quick play keeps the
+  // full hero treatment.
+  const showQuickHero = !lastPlayed || !activeAccount;
+
   return (
-    <div className="animate-fade-up flex flex-col gap-3">
+    <div className="animate-fade-up flex flex-col gap-5">
+      {/* Continue playing — the dominant block for a returning player. */}
+      {lastPlayed && (
+        <ContinueCard
+          instance={lastPlayed}
+          status={statuses[lastPlayed.id]}
+          onOpen={() => navigate({ page: "instance", id: lastPlayed.id })}
+          onPlay={() => playInstance(lastPlayed)}
+          onStop={() => api.killInstance(lastPlayed.id).catch(() => {})}
+        />
+      )}
+
+      {/* Quick play — compact once there is something to continue. */}
+      {!showQuickHero && (
+        <div className="card flex flex-wrap items-center gap-3 p-3.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
+            <Rocket className="size-4.5" />
+          </span>
+          <div className="mr-auto min-w-0">
+            <div className="text-sm font-medium text-t1">{t("home.quickPlay")}</div>
+            <div className="truncate text-xs text-t3">{t("home.quickPlayDesc")}</div>
+          </div>
+          <div className="w-32">
+            <SelectWrap>
+              <select
+                className="select-base !py-2 !text-[13px]"
+                value={mcVersion}
+                onChange={(e) => setMcVersion(e.target.value)}
+              >
+                {versions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.id}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
+          </div>
+          <button
+            className="btn-secondary !py-2"
+            disabled={quickBusy || quickRunning || !mcVersion}
+            onClick={quickPlay}
+          >
+            {quickBusy ? <Spinner /> : <Play className="size-4 fill-current" />}
+            {quickRunning ? t("status.running") : t("home.playNow")}
+          </button>
+          {quickBusy && progress && (
+            <div className="w-full">
+              <ProgressBar value={progress.current / Math.max(1, progress.total)} />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Hero / quick play */}
+      {showQuickHero && (
       <div
         className="relative overflow-hidden rounded-xl border border-stroke px-5 py-4"
         style={{
@@ -300,48 +366,21 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
           </div>
         )}
       </div>
-
-      {/* Continue playing */}
-      {lastPlayed && (
-        <div>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-t3">
-            {t("home.continueTitle")}
-          </h2>
-          <ContinueCard
-            instance={lastPlayed}
-            running={statuses[lastPlayed.id]?.state === "running"}
-            busy={["preparing", "installing", "launching"].includes(
-              statuses[lastPlayed.id]?.state ?? "",
-            )}
-            onOpen={() => navigate({ page: "instance", id: lastPlayed.id })}
-            onPlay={() => playInstance(lastPlayed)}
-            onStop={() => api.killInstance(lastPlayed.id).catch(() => {})}
-          />
-        </div>
       )}
 
       {/* What's new: available modpack & mod updates */}
       {updates.length > 0 && (
         <div>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-t3">
-            {t("home.updates")}
-          </h2>
+          <h2 className="section-title mb-2">{t("home.updates")}</h2>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5">
             {updates.map(({ inst, packVersion, modCount }) => {
-              const src = instanceIconSrc(inst);
               return (
                 <button
                   key={inst.id}
                   onClick={() => navigate({ page: "instance", id: inst.id })}
-                  className="card flex items-center gap-3 p-3.5 text-left transition-all hover:bg-card-hover hover:-translate-y-0.5 cursor-pointer"
+                  className="card card-action flex items-center gap-3 py-3.5 pl-4 pr-3.5 text-left transition-all hover:bg-card-hover hover:-translate-y-0.5 cursor-pointer"
                 >
-                  {src ? (
-                    <img src={src} alt="" className="size-10 shrink-0 rounded-lg object-cover" />
-                  ) : (
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-                      <Box className="size-5" />
-                    </div>
-                  )}
+                  <InstanceIcon instance={inst} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-t1">{inst.name}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -369,9 +408,7 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
       {/* Recent instances */}
       {recent.length > 0 && (
         <div>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-t3">
-            {t("home.recent")}
-          </h2>
+          <h2 className="section-title mb-2">{t("home.recent")}</h2>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-2.5">
             {recent.map((inst) => (
               <button
@@ -379,13 +416,7 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
                 onClick={() => navigate({ page: "instance", id: inst.id })}
                 className="card flex items-center gap-3 p-3.5 text-left transition-all hover:bg-card-hover hover:-translate-y-0.5 cursor-pointer"
               >
-                {inst.iconUrl ? (
-                  <img src={inst.iconUrl} alt="" className="size-10 rounded-lg object-cover" />
-                ) : (
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-                    <Box className="size-5" />
-                  </div>
-                )}
+                <InstanceIcon instance={inst} size={40} />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-t1">
                     {inst.name}
@@ -402,12 +433,27 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
       )}
 
       {/* Discovery: popular modpacks from Modrinth */}
+      {popularLoading && (
+        <div>
+          <h2 className="section-title mb-2">{t("home.popular")}</h2>
+          {/* Skeletons keep the layout from jumping when the grid arrives. */}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-2.5">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className="card flex items-center gap-3 p-3">
+                <Skeleton className="size-11 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-3.5 w-3/4" />
+                  <Skeleton className="mt-2 h-3 w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {popular.length > 0 && (
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-t3">
-              {t("home.popular")}
-            </h2>
+            <h2 className="section-title">{t("home.popular")}</h2>
             <button
               className="flex items-center gap-1 text-xs font-medium text-accent-text hover:underline cursor-pointer"
               onClick={() => navigate({ page: "browse", projectType: "modpack" })}
@@ -458,66 +504,108 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   );
 }
 
+/**
+ * The main entry point of the screen for a returning player: the instance
+ * they last played, given real presence — its own artwork as the backdrop
+ * (or its loader colour), a large title and one obvious action.
+ */
 function ContinueCard({
   instance,
-  running,
-  busy,
+  status,
   onOpen,
   onPlay,
   onStop,
 }: {
   instance: Instance;
-  running: boolean;
-  busy: boolean;
+  status?: InstanceStatus;
   onOpen: () => void;
   onPlay: () => void;
   onStop: () => void;
 }) {
   const { t } = useTranslation();
+  const icon = instanceIconSrc(instance);
+  const running = status?.state === "running";
+  const busy = ["preparing", "installing", "launching"].includes(
+    status?.state ?? "",
+  );
+  const progress = status?.packProgress
+    ? status.packProgress.current / Math.max(1, status.packProgress.total)
+    : status?.progress
+      ? status.progress.current / Math.max(1, status.progress.total)
+      : null;
+  const playtime = instance.totalPlaytimeSecs ?? 0;
+
   return (
     <div
       onClick={onOpen}
-      className="card group flex cursor-pointer items-center gap-4 p-4 transition-all hover:bg-card-hover"
+      className="card group relative cursor-pointer overflow-hidden !p-0 transition-all hover:-translate-y-0.5"
     >
-      {instance.iconUrl ? (
-        <img src={instance.iconUrl} alt="" className="size-14 rounded-xl object-cover" />
-      ) : (
-        <div className="flex size-14 items-center justify-center rounded-xl bg-accent-soft text-accent-text">
-          <Box className="size-7" />
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium tracking-tight text-t1">
-          {instance.name}
-        </div>
-        <div className="mt-1 flex items-center gap-2 text-xs text-t3">
-          <LoaderBadge loader={instance.loader} />
-          <span>{instance.mcVersion}</span>
-          <span>
-            · {t("instances.lastPlayed")}: {formatRelativeDate(instance.lastPlayed)}
-          </span>
-        </div>
-      </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          running ? onStop() : onPlay();
-        }}
-        disabled={busy}
-        className={running ? "btn-danger" : "btn-primary"}
-      >
-        {busy ? (
-          <Spinner />
-        ) : running ? (
-          <>
-            <Square className="size-4 fill-current" /> {t("common.stop")}
-          </>
+      {/* Backdrop: the instance's own art, or its loader gradient. */}
+      <div className="absolute inset-0" aria-hidden>
+        {icon ? (
+          <img src={icon} alt="" className="banner-img !opacity-30 dark:!opacity-25" />
         ) : (
-          <>
-            <Play className="size-4 fill-current" /> {t("common.play")}
-          </>
+          <div
+            className="size-full opacity-[0.18] dark:opacity-25"
+            style={{ background: LOADER_GRADIENTS[instance.loader] }}
+          />
         )}
-      </button>
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(100deg, var(--card) 32%, transparent 130%)",
+          }}
+        />
+      </div>
+
+      <div className="relative flex flex-wrap items-center gap-4 p-5">
+        <InstanceIcon instance={instance} size={64} rounded="rounded-2xl" className="shadow-lg" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-accent-text">
+            {t("home.continueTitle")}
+          </div>
+          <div className="mt-0.5 truncate text-xl font-bold tracking-tight text-t1">
+            {instance.name}
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-t3">
+            <LoaderBadge loader={instance.loader} />
+            <span>{instance.mcVersion}</span>
+            <span>· {formatRelativeDate(instance.lastPlayed)}</span>
+            {playtime > 0 && (
+              <span className="inline-flex items-center gap-1">
+                · <Clock className="size-3" /> {formatPlaytime(playtime)}
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            running ? onStop() : onPlay();
+          }}
+          disabled={busy}
+          className={`${running ? "btn-danger" : "btn-primary"} !px-7 !py-3 !text-base`}
+          style={running ? undefined : { boxShadow: "var(--glow)" }}
+        >
+          {busy ? (
+            <Spinner className="size-5" />
+          ) : running ? (
+            <>
+              <Square className="size-4.5 fill-current" /> {t("common.stop")}
+            </>
+          ) : (
+            <>
+              <Play className="size-4.5 fill-current" /> {t("common.play")}
+            </>
+          )}
+        </button>
+        {busy && progress !== null && (
+          <div className="w-full">
+            <ProgressBar value={progress} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { ArrowDownToLine } from "lucide-react";
+import { listen } from "@tauri-apps/api/event";
+import { Download, WifiOff } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import logo from "./assets/logo.png";
@@ -46,26 +47,8 @@ function ForcedUpdateOverlay() {
   );
 }
 
-function UpdatePill() {
-  const { t } = useTranslation();
-  const { appUpdate, updateInstalling, forcedUpdate, installAppUpdate } = useStore();
-  if (!appUpdate || forcedUpdate) return null;
-  return (
-    <button
-      className="btn-primary fixed right-5 top-4 z-40 !rounded-full !px-4 !py-2 text-xs shadow-lg animate-fade-up"
-      disabled={updateInstalling}
-      onClick={installAppUpdate}
-      title={t("settings.updateInstall")}
-    >
-      {updateInstalling ? (
-        <Spinner className="size-3.5" />
-      ) : (
-        <ArrowDownToLine className="size-3.5" />
-      )}
-      {t("settings.updateAvailable", { v: appUpdate.version })}
-    </button>
-  );
-}
+// The update prompt now lives in the sidebar (see Sidebar.tsx) so nothing
+// floats over page content.
 
 function Shell() {
   const { t } = useTranslation();
@@ -73,6 +56,8 @@ function Shell() {
   const { instances, accounts, settings, refreshInstances, toast } = useStore();
   const [onboarded, setOnboarded] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [offline, setOffline] = useState(!navigator.onLine);
   const onboardingSeen = useRef(false);
 
   // First run: no accounts and no instances → show the wizard once ever
@@ -91,28 +76,84 @@ function Shell() {
     setOnboarded(true);
   };
 
-  // Drag & drop a .mrpack onto the window to import it.
+  // Drag & drop: a .mrpack imports as a new instance, .jar/.zip files install
+  // into the instance that is currently open.
+  const openInstanceId = route.page === "instance" ? route.id : null;
+  const openInstance = instances.find((i) => i.id === openInstanceId);
   useEffect(() => {
     const unlisten = getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type !== "drop") return;
-      const file = event.payload.paths.find((p) =>
-        p.toLowerCase().endsWith(".mrpack"),
+      if (event.payload.type === "over") {
+        setDragging(true);
+        return;
+      }
+      if (event.payload.type !== "drop") {
+        setDragging(false);
+        return;
+      }
+      setDragging(false);
+      const paths = event.payload.paths;
+      const pack = paths.find((p) => p.toLowerCase().endsWith(".mrpack"));
+      if (pack) {
+        toast("info", t("settings.importTitle"));
+        api
+          .importMrpack(pack)
+          .then(() => {
+            refreshInstances();
+            toast("success", t("settings.importDone"));
+            setRoute({ page: "instances" });
+          })
+          .catch((e) => toast("error", errorText(e)));
+        return;
+      }
+      const content = paths.filter(
+        (p) => p.toLowerCase().endsWith(".jar") || p.toLowerCase().endsWith(".zip"),
       );
-      if (!file) return;
-      toast("info", t("settings.importTitle"));
+      if (content.length === 0 || !openInstanceId) return;
+      // Vanilla instances can't load mods — their content folder is resourcepacks.
+      const folder = openInstance?.loader === "vanilla" ? "resourcepacks" : "mods";
       api
-        .importMrpack(file)
-        .then(() => {
-          refreshInstances();
-          toast("success", t("settings.importDone"));
-          setRoute({ page: "instances" });
+        .installLocalMods(openInstanceId, content, folder)
+        .then((installed) => {
+          toast("success", t("tools.filesInstalled", { n: installed.length }));
+          api.invalidateEnrich(openInstanceId);
+          // The instance page reloads its list on this event.
+          window.dispatchEvent(new CustomEvent("nimbus:mods-changed"));
         })
         .catch((e) => toast("error", errorText(e)));
     });
     return () => {
       unlisten.then((fn) => fn()).catch(() => {});
     };
-  }, [refreshInstances, toast]);
+  }, [refreshInstances, toast, t, openInstanceId, openInstance?.loader]);
+
+  // Desktop shortcuts start the app with `--launch <id>`; a second launch
+  // forwards the same request as an event to the running window.
+  useEffect(() => {
+    const play = (id: string) => {
+      setRoute({ page: "instance", id });
+      api.launchInstance(id).catch((e) => toast("error", errorText(e)));
+    };
+    api
+      .takePendingLaunch()
+      .then((id) => id && play(id))
+      .catch(() => {});
+    const unlisten = listen<string>("launch-request", (e) => play(e.payload));
+    return () => {
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
+  }, [toast]);
+
+  // Offline is a state worth naming: without it the catalog just throws.
+  useEffect(() => {
+    const sync = () => setOffline(!navigator.onLine);
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
 
   // Ctrl/⌘+K toggles the command palette. Match on e.code (physical key) so it
   // works regardless of keyboard layout — e.key would be "л" on a Cyrillic layout.
@@ -142,9 +183,30 @@ function Shell() {
         navigate={setRoute}
         onOpenPalette={() => setPaletteOpen(true)}
       />
-      <UpdatePill />
+      {/* Drop target hint — only meaningful where a drop does something. */}
+      {dragging && (
+        <div className="pointer-events-none fixed inset-0 z-[65] flex items-center justify-center bg-accent-soft/60 backdrop-blur-[2px]">
+          <div className="card popover flex items-center gap-3 px-6 py-4 text-sm font-medium text-t1">
+            <Download className="size-5 text-accent-text" />
+            {route.page === "instance"
+              ? t("tools.dropHere")
+              : t("settings.importDesc")}
+          </div>
+        </div>
+      )}
       <main className="min-w-0 flex-1 overflow-y-auto px-5 py-4 pl-1">
         <div className="h-full">
+          {offline && (
+            <div className="card card-action mb-3 flex items-center gap-3 py-3 pl-4 pr-4">
+              <WifiOff className="size-4 shrink-0 text-accent-text" />
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-t1">
+                  {t("tools.offlineTitle")}
+                </div>
+                <div className="text-xs text-t3">{t("tools.offlineDesc")}</div>
+              </div>
+            </div>
+          )}
           {route.page === "home" && <HomePage navigate={setRoute} />}
           {route.page === "instances" && <InstancesPage navigate={setRoute} />}
           {route.page === "instance" && (

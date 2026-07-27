@@ -502,9 +502,20 @@ pub async fn modrinth_update_mod(
     };
     download_to(&state, url, &mods_dir.join(&final_name), sha1).await?;
 
+    // Keep the previous jar instead of deleting it: an update that breaks a
+    // world should be one click away from being undone.
     let old_path = mods_dir.join(&file_name);
     if final_name != file_name && old_path.exists() {
-        let _ = tokio::fs::remove_file(old_path).await;
+        let backups = mods_dir.join(BACKUP_DIR);
+        if tokio::fs::create_dir_all(&backups).await.is_ok()
+            && tokio::fs::rename(&old_path, backups.join(&file_name))
+                .await
+                .is_ok()
+        {
+            prune_backups(&backups, &file_name).await;
+        } else {
+            let _ = tokio::fs::remove_file(&old_path).await;
+        }
     }
 
     // A newer version can require dependencies the old one didn't. Resolve
@@ -520,6 +531,109 @@ pub async fn modrinth_update_mod(
         }
     }
     Ok(final_name)
+}
+
+/// Folder inside `mods/` holding the previous version of updated mods. The
+/// leading dot keeps it out of the game's mod scan.
+const BACKUP_DIR: &str = ".nimbus-backup";
+
+/// Keeps only the newest backup per mod so the folder can't grow forever.
+/// Files are matched on the name before the first digit group, which is what
+/// stays stable across versions of the same mod.
+async fn prune_backups(backups: &Path, kept: &str) {
+    let prefix = mod_key(kept);
+    let Ok(mut entries) = tokio::fs::read_dir(backups).await else {
+        return;
+    };
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name != kept && mod_key(&name) == prefix {
+            let _ = tokio::fs::remove_file(entry.path()).await;
+        }
+    }
+}
+
+/// "sodium-fabric-0.5.8.jar" -> "sodium-fabric"
+fn mod_key(file_name: &str) -> String {
+    file_name
+        .trim_end_matches(".disabled")
+        .trim_end_matches(".jar")
+        .split(|c: char| c == '-' || c == '_' || c == '+')
+        .take_while(|part| !part.chars().next().is_some_and(|c| c.is_ascii_digit()))
+        .collect::<Vec<_>>()
+        .join("-")
+        .to_lowercase()
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModBackup {
+    pub file_name: String,
+    pub size_bytes: u64,
+}
+
+/// Previous versions kept aside by `modrinth_update_mod`.
+#[tauri::command]
+pub async fn list_mod_backups(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> CmdResult<Vec<ModBackup>> {
+    let dir = state.instance_dir(&instance_id)?.join("mods").join(BACKUP_DIR);
+    let result = tokio::task::spawn_blocking(move || {
+        let mut out = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let file_name = entry.file_name().to_string_lossy().into_owned();
+                if !file_name.ends_with(".jar") && !file_name.ends_with(".jar.disabled") {
+                    continue;
+                }
+                out.push(ModBackup {
+                    size_bytes: entry.metadata().map(|m| m.len()).unwrap_or(0),
+                    file_name,
+                });
+            }
+        }
+        out.sort_by(|a, b| a.file_name.cmp(&b.file_name));
+        out
+    })
+    .await
+    .map_err(err_to_string)?;
+    Ok(result)
+}
+
+/// Restores a kept previous version, removing the newer file it replaced.
+#[tauri::command]
+pub async fn rollback_mod(
+    state: State<'_, AppState>,
+    instance_id: String,
+    file_name: String,
+) -> CmdResult<String> {
+    if file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
+        return Err("Некорректное имя файла".into());
+    }
+    let mods_dir = state.instance_dir(&instance_id)?.join("mods");
+    let backup = mods_dir.join(BACKUP_DIR).join(&file_name);
+    if !backup.is_file() {
+        return Err("Резервная копия не найдена".into());
+    }
+
+    // Drop whatever newer version of the same mod is installed.
+    let key = mod_key(&file_name);
+    if let Ok(entries) = std::fs::read_dir(&mods_dir) {
+        for entry in entries.flatten() {
+            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if mod_key(&name) == key {
+                let _ = tokio::fs::remove_file(entry.path()).await;
+            }
+        }
+    }
+    tokio::fs::rename(&backup, mods_dir.join(&file_name))
+        .await
+        .map_err(err_to_string)?;
+    Ok(file_name)
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -905,6 +1019,9 @@ async fn install_pack_files(
 pub struct ModpackUpdate {
     pub version_id: String,
     pub version_number: String,
+    /// Release notes of the new version, so an update isn't a blind leap.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub changelog: Option<String>,
 }
 
 /// Returns the newest modpack version if it differs from the installed one.
@@ -955,6 +1072,12 @@ async fn check_modpack_update_inner(
             .as_str()
             .unwrap_or_default()
             .to_string(),
+        changelog: latest["changelog"]
+            .as_str()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
+            // Keep it to a readable excerpt — some packs paste whole diffs.
+            .map(|c| c.chars().take(4000).collect()),
     }))
 }
 
@@ -1181,6 +1304,10 @@ fn add_dir_to_zip(
         let path = entry.path();
         let file_type = entry.file_type().map_err(err_to_string)?;
         if file_type.is_dir() {
+            // Skip dot-folders — that includes our own mod-version backups.
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
             add_dir_to_zip(zip, &path, base, managed_jars, opts)?;
         } else {
             let name = entry.file_name().to_string_lossy().into_owned();

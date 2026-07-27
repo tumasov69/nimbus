@@ -162,6 +162,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => media.removeEventListener("change", apply);
   }, [settings?.theme]);
 
+  // Accent preset: a data attribute on <html> swaps the accent tokens.
+  useEffect(() => {
+    const accent = settings?.accent ?? "indigo";
+    if (accent === "indigo") delete document.documentElement.dataset.accent;
+    else document.documentElement.dataset.accent = accent;
+  }, [settings?.accent]);
+
   // Keep the notifications helper in sync with the setting.
   useEffect(() => {
     setNotificationsEnabled(settings?.notificationsEnabled ?? true);
