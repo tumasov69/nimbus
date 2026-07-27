@@ -32,19 +32,7 @@ struct LevelData {
     last_played: Option<i64>,
 }
 
-fn dir_size(path: &Path) -> u64 {
-    let mut total = 0;
-    if let Ok(entries) = std::fs::read_dir(path) {
-        for entry in entries.flatten() {
-            match entry.file_type() {
-                Ok(ft) if ft.is_dir() => total += dir_size(&entry.path()),
-                Ok(_) => total += entry.metadata().map(|m| m.len()).unwrap_or(0),
-                _ => {}
-            }
-        }
-    }
-    total
-}
+use super::tools::dir_size;
 
 /// Reads world name + last-played from a gzip-compressed level.dat.
 fn read_level_dat(level_dat: &Path) -> (Option<String>, Option<i64>) {

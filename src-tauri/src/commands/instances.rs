@@ -50,21 +50,7 @@ pub async fn create_instance(
     Ok(instance)
 }
 
-/// Recursively copies a directory tree.
-fn copy_dir(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(to)?;
-    for entry in std::fs::read_dir(from)? {
-        let entry = entry?;
-        let src = entry.path();
-        let dst = to.join(entry.file_name());
-        if entry.file_type()?.is_dir() {
-            copy_dir(&src, &dst)?;
-        } else {
-            std::fs::copy(&src, &dst)?;
-        }
-    }
-    Ok(())
-}
+use super::tools::copy_tree as copy_dir;
 
 #[tauri::command]
 pub async fn clone_instance(state: State<'_, AppState>, id: String) -> CmdResult<Instance> {

@@ -736,7 +736,8 @@ pub async fn import_external_instance(
     Ok(instance)
 }
 
-fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
+/// Recursively copies a directory tree. Shared with instance cloning.
+pub fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
         let entry = entry?;
