@@ -60,7 +60,13 @@ export async function downloadAndInstallGuarded(
     };
     arm();
     update
-      .downloadAndInstall(arm, { timeout: 300_000 })
+      .downloadAndInstall((event) => {
+        // Only the download can stall. Once it finishes, the installer runs
+        // with no further events — keeping the watchdog armed there would
+        // abort a perfectly healthy (just slow) install.
+        if (event.event === "Finished") window.clearTimeout(timer);
+        else arm();
+      }, { timeout: 300_000 })
       .then(resolve, reject)
       .finally(() => window.clearTimeout(timer));
   });

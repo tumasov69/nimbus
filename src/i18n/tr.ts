@@ -204,6 +204,8 @@ export const tr: Dict = {
     empty: "Henüz dünya yok",
     backup: "Yedek",
     backupDone: "Dünya yedeklendi",
+    deleteTitle: "Dünya silinsin mi?",
+    deleteWarn: "\"{{name}}\" dünyası ve tüm ilerlemesi kalıcı olarak silinecek. Bu geri alınamaz — gerekiyorsa önce yedek al.",
   },
   servers: {
     offline: "Çevrimdışı",

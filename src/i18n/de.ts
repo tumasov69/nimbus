@@ -204,6 +204,8 @@ export const de: Dict = {
     empty: "Noch keine Welten",
     backup: "Backup",
     backupDone: "Welt gesichert",
+    deleteTitle: "Welt löschen?",
+    deleteWarn: "Die Welt „{{name}}“ und ihr gesamter Fortschritt werden endgültig gelöscht. Das lässt sich nicht rückgängig machen — erstelle bei Bedarf zuerst ein Backup.",
   },
   servers: {
     offline: "Offline",

@@ -204,6 +204,8 @@ export const pl: Dict = {
     empty: "Brak światów",
     backup: "Kopia zapasowa",
     backupDone: "Utworzono kopię świata",
+    deleteTitle: "Usunąć świat?",
+    deleteWarn: "Świat „{{name}}” i cały postęp zostaną trwale usunięte. Tego nie można cofnąć — w razie potrzeby najpierw zrób kopię zapasową.",
   },
   servers: {
     offline: "Offline",

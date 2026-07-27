@@ -38,12 +38,19 @@ pub async fn set_playing(state: &AppState, instance: &Instance) {
         }
     }
     if let Some(client) = guard.as_mut() {
-        let _ = client.set_activity(
+        let result = client.set_activity(
             activity::Activity::new()
                 .details(&details)
                 .state(&line)
                 .assets(activity::Assets::new().large_image("nimbus").large_text("Nimbus")),
         );
+        // Discord was closed (or restarted) since we connected — drop the dead
+        // client so the next launch reconnects instead of silently doing
+        // nothing until the launcher itself is restarted.
+        if result.is_err() {
+            let _ = client.close();
+            *guard = None;
+        }
     }
 }
 

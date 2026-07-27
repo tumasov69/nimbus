@@ -60,28 +60,47 @@ export function HomePage({ navigate }: { navigate: (r: Route) => void }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const found = await Promise.all(
-        instances.map(async (inst): Promise<UpdateEntry | null> => {
-          let packVersion: string | undefined;
-          if (inst.modpack) {
-            try {
-              const u = await api.checkModpackUpdate(inst.id);
-              if (u) packVersion = u.versionNumber;
-            } catch {
-              /* ignore */
-            }
-          }
-          let modCount = 0;
+      const check = async (inst: Instance): Promise<UpdateEntry | null> => {
+        let packVersion: string | undefined;
+        if (inst.modpack) {
           try {
-            const mods = await api.modrinthEnrichMods(inst.id);
-            modCount = mods.filter((m) => m.updateVersionId).length;
+            const u = await api.checkModpackUpdate(inst.id);
+            if (u) packVersion = u.versionNumber;
           } catch {
             /* ignore */
           }
-          return packVersion || modCount > 0 ? { inst, packVersion, modCount } : null;
-        }),
+        }
+        let modCount = 0;
+        try {
+          const mods = await api.modrinthEnrichMods(inst.id);
+          modCount = mods.filter((m) => m.updateVersionId).length;
+        } catch {
+          /* ignore */
+        }
+        return packVersion || modCount > 0 ? { inst, packVersion, modCount } : null;
+      };
+
+      // Enrichment hashes every jar of an instance — running all of them at
+      // once would spike CPU and disk right when Home opens. Two at a time.
+      const queue = [...instances];
+      const found: UpdateEntry[] = [];
+      const worker = async () => {
+        for (;;) {
+          const inst = queue.shift();
+          if (!inst || cancelled) return;
+          const entry = await check(inst);
+          if (entry) found.push(entry);
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(2, instances.length) }, worker),
       );
-      if (!cancelled) setUpdates(found.filter((e): e is UpdateEntry => e !== null));
+      if (!cancelled) {
+        // Keep the original instance order regardless of completion order.
+        const order = new Map(instances.map((i, idx) => [i.id, idx]));
+        found.sort((a, b) => (order.get(a.inst.id) ?? 0) - (order.get(b.inst.id) ?? 0));
+        setUpdates(found);
+      }
     })();
     return () => {
       cancelled = true;

@@ -204,6 +204,8 @@ export const zh: Dict = {
     empty: "还没有世界",
     backup: "备份",
     backupDone: "世界已备份",
+    deleteTitle: "删除世界？",
+    deleteWarn: "世界“{{name}}”及其全部进度将被永久删除，且无法撤销——如有需要请先备份。",
   },
   servers: {
     offline: "离线",

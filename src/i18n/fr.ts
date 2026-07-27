@@ -204,6 +204,8 @@ export const fr: Dict = {
     empty: "Aucun monde pour l'instant",
     backup: "Sauvegarde",
     backupDone: "Monde sauvegardé",
+    deleteTitle: "Supprimer le monde ?",
+    deleteWarn: "Le monde « {{name}} » et toute sa progression seront définitivement supprimés. Action irréversible — faites une sauvegarde au besoin.",
   },
   servers: {
     offline: "Hors ligne",

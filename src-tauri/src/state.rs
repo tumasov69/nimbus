@@ -48,8 +48,15 @@ impl AppState {
             }
         }
 
+        // Timeouts matter: without them a silently dropped connection leaves
+        // a request hanging forever, and the UI waits on it with no way out
+        // (catalog search, update checks, game-file downloads). `read_timeout`
+        // limits the gap *between* received chunks rather than the whole
+        // request, so slow-but-alive downloads of large files still finish.
         let http = reqwest::Client::builder()
             .user_agent(USER_AGENT)
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .read_timeout(std::time::Duration::from_secs(60))
             .build()
             .expect("failed to build http client");
 

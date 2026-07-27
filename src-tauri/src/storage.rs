@@ -2,9 +2,20 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
 
 pub fn read_json_or_default<T: DeserializeOwned + Default>(path: &Path) -> T {
-    match std::fs::read_to_string(path) {
-        Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
-        Err(_) => T::default(),
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return T::default();
+    };
+    match serde_json::from_str(&text) {
+        Ok(value) => value,
+        Err(e) => {
+            // Falling back to the default silently would wipe every instance
+            // or account on the next save. Keep the unreadable file so the
+            // data can still be recovered by hand.
+            eprintln!("[nimbus] {} is not valid JSON: {e}", path.display());
+            let backup = path.with_extension("json.corrupt");
+            let _ = std::fs::rename(path, &backup);
+            T::default()
+        }
     }
 }
 

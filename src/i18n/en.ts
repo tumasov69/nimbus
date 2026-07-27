@@ -202,6 +202,8 @@ export const en = {
     empty: "No worlds yet",
     backup: "Backup",
     backupDone: "World backed up",
+    deleteTitle: "Delete world?",
+    deleteWarn: "The world \"{{name}}\" and all its progress will be permanently deleted. This cannot be undone — make a backup first if you need it.",
   },
   servers: {
     offline: "Offline",

@@ -204,6 +204,8 @@ export const pt: Dict = {
     empty: "Ainda sem mundos",
     backup: "Backup",
     backupDone: "Mundo salvo em backup",
+    deleteTitle: "Excluir o mundo?",
+    deleteWarn: "O mundo \"{{name}}\" e todo o progresso serão excluídos permanentemente. Isso não pode ser desfeito — faça um backup antes, se precisar.",
   },
   servers: {
     offline: "Offline",

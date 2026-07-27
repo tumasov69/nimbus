@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import { errorText, useStore } from "../store";
-import { Spinner, formatBytes, formatRelativeDate } from "./ui";
+import { Modal, Spinner, formatBytes, formatRelativeDate } from "./ui";
 
 export function WorldsTab({ id }: { id: string }) {
   const { t } = useTranslation();
@@ -12,6 +12,7 @@ export function WorldsTab({ id }: { id: string }) {
   const [worlds, setWorlds] = useState<api.WorldInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<api.WorldInfo | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,7 +46,10 @@ export function WorldsTab({ id }: { id: string }) {
     }
   };
 
+  // A world folder is deleted outright (not moved to the recycle bin), so
+  // losing one is unrecoverable — always confirm first.
   const remove = async (folder: string) => {
+    setConfirmDelete(null);
     setBusy(folder);
     try {
       await api.deleteWorld(id, folder);
@@ -74,6 +78,7 @@ export function WorldsTab({ id }: { id: string }) {
   }
 
   return (
+    <>
     <div className="card divide-y divide-stroke">
       {worlds.map((world) => (
         <div key={world.folder} className="flex items-center gap-3 px-4 py-3">
@@ -108,12 +113,36 @@ export function WorldsTab({ id }: { id: string }) {
             className="btn-ghost !p-2 hover:!bg-danger-soft hover:!text-danger"
             title={t("common.delete")}
             disabled={busy === world.folder}
-            onClick={() => remove(world.folder)}
+            onClick={() => setConfirmDelete(world)}
           >
             <Trash2 className="size-4" />
           </button>
         </div>
       ))}
     </div>
+
+    {confirmDelete && (
+      <Modal
+        title={t("worlds.deleteTitle")}
+        onClose={() => setConfirmDelete(null)}
+        width="max-w-md"
+      >
+        <p className="text-sm text-t2">
+          {t("worlds.deleteWarn", { name: confirmDelete.name })}
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setConfirmDelete(null)}>
+            {t("common.cancel")}
+          </button>
+          <button
+            className="btn-danger"
+            onClick={() => remove(confirmDelete.folder)}
+          >
+            <Trash2 className="size-4" /> {t("common.delete")}
+          </button>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
